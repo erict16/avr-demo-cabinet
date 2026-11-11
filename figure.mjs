@@ -210,7 +210,10 @@ function locker() {
   out.push(S(k.slabOf({ x: -54, y: FRONT - 1, w: 108, d: 2.2, r: 0.6 }, 24, 27, P, 2, 0.4), { tone: "mid" }));
   const y = FRONT + 1.2;
   let face = fl(fr(-20, 41, 20, 45.6, 2.2), "lo") + fl(fr(-19, 41.8, 19, 44.8, 1.5), "faint");
-  for (let i = 0; i < 6; i++) face += fl(fr(-50 + i * 5, 28, -47 + i * 5, 36, 0.8), "lo");
+  // engraved name plate, two screws
+  face += '<path fill="#f4f5f5" d="' + fr(-50, 29, -26, 36.4, 0.6) + '"/>' + fl(fr(-50, 29, -26, 36.4, 0.6), "lo");
+  face += '<text x="-38" y="-31.4" font-size="2.3" font-family="Inter,Arial,sans-serif" font-weight="700" letter-spacing=".12" text-anchor="middle" fill="#2b3135">CABLE LOCKER</text>';
+  face += fl(circle(-48.6, 32.7, 0.45, 10) + circle(-27.4, 32.7, 0.45, 10), "lo");
   face += fl(circle(42, 36, 2.2, 24), "lo") + fl(fr(41.6, 34.6, 42.4, 37.4, 0.3), "mid");
   out.push(onFace(y, face));
   out.push(D([[-51.5, 27], [-51.5, 48], [51.5, 27], [51.5, 48]].map(([x, z]) => at([x, y, z])), { size: 0.45 }));
@@ -430,9 +433,18 @@ function boxOf(x0, x1, z0, z1) {
   const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
   return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)].map((v) => Math.round(v * 10) / 10);
 }
+function boxPts(list) {
+  const pts = list.map(at);
+  const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+  return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)].map((v) => Math.round(v * 10) / 10);
+}
 export const BOXES = {
   ...Object.fromEntries(Object.entries({ 1: "s1", 2: "s2", 3: "s3", 4: "s4", spare: "spare", 5: "s5", 6: "s6" }).map(([no, key]) => [no, boxOf(-50, 50, SLOTS[key].z0, SLOTS[key].z1)])),
   rack: boxOf(-60, 60, CAVITY.z0 - 2, ZW + 4),
+  locker: boxPts([[-56, FRONT + 2, 20], [56, FRONT + 2, 20], [-56, FRONT + 2, 54], [56, FRONT + 2, 54], [56, FRONT - 20, 54], [-56, FRONT + 6, 0]]),
+  screen: boxPts([[MON.x0, MON.y1, MON.z0], [MON.x1, MON.y1, MON.z0], [MON.x0, MON.y1, MON.z1], [MON.x1, MON.y0, MON.z1], [-14, 24, ZW + 3]]),
+  tray: boxPts([[-48, FRONT + 3, 232], [48, FRONT + 3, 232], [-48, FRONT + 3, 268], [48, FRONT + 3, 268], [48, FRONT - 10, 268]]),
+  side: boxPts([[SIDE, -46, 0], [SIDE + 4, 36, 0], [SIDE, -46, 240], [SIDE + 4, 36, 240], [PLUG[0] + 3, PLUG[1] - 3, 0]]),
 };
 
 // ---------- worktop, tray and keyboard ----------
@@ -534,17 +546,16 @@ export function figureBody() {
     body(),
     sideFace(),
     sideDetail(),
-    cableDuct(),
-    powerStrip(),
+    sysGroup("side", cableDuct() + powerStrip()),
     pushHandle(),
-    locker(),
+    sysGroup("locker", locker()),
     rack(),
-    fascia(),
+    sysGroup("tray", fascia()),
     worktop(),
     upperBack(),
-    monitor(),
+    sysGroup("screen", monitor()),
     upperFront(),
-    tray(),
+    sysGroup("tray", tray()),
     part("castors", frontCastors()),
   ];
 }

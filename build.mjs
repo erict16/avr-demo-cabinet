@@ -133,6 +133,11 @@ button{font:inherit;color:inherit}
 .more .card{padding:16px}
 .more h3{margin-bottom:6px}
 .more li{font-size:.875rem;padding:2px 0}
+.parts li{padding:0}
+.parts .plain{padding:6px 0;color:var(--muted)}
+.part-row{display:block;width:calc(100% + 16px);margin:0 -8px;padding:6px 8px;border:0;border-radius:6px;background:transparent;text-align:left;font-size:.875rem;color:var(--ink);cursor:pointer;transition:background-color .15s}
+.part-row[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent-ink);font-weight:500}
+@media (hover:hover){.part-row:hover{background:var(--sunk)}}
 
 /* sections */
 section.block{padding-top:clamp(48px,7vw,88px)}
@@ -397,7 +402,7 @@ const html = `<!doctype html>
       <ol class="sys-list">${systems}</ol>
     </div>
     <div class="more">
-      <div class="card"><h3>Also inside</h3><ul><li>BCD box, back panel</li><li>Screen and keyboard tray</li><li>Cable locker, 13 A extension</li><li>Side cable box to the locker</li></ul></div>
+      <div class="card"><h3>Cabinet</h3><ul class="parts"><li><button type="button" class="part-row" data-pick="screen">Screen</button></li><li><button type="button" class="part-row" data-pick="tray">Keyboard tray</button></li><li><button type="button" class="part-row" data-pick="locker">Cable locker, 13 A extension</button></li><li><button type="button" class="part-row" data-pick="side">Side cable box, power strip</button></li><li class="plain">BCD box, back panel</li></ul></div>
       <div class="card"><h3>Outside</h3><ul><li>2 × SHM-D motor drive</li><li>Junction box at each SHM-D</li><li>Cables in through the back</li></ul></div>
     </div>
   </aside>
