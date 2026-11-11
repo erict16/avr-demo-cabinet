@@ -438,8 +438,6 @@ for x in (-19, 17.4):
 cyl("locker handle bar", 0, 53.2, 43.3, 0.75, 38, "x", M["alu"], verts=16, bevel=0.3)
 cyl("locker lock", 42, 51.8, 36, 2.2, 1.4, "y", M["steel"], bevel=0.3)
 box("locker lock slot", 41.7, 42.3, 52.5, 52.6, 35.0, 37.0, M["hole"])
-for i in range(6):
-    box("locker vent", -50 + i * 5, -47 + i * 5, 51.15, 51.3, 28, 36, M["hole"])
 
 # ---------- 19-inch rails, EIA-310 square holes ----------
 for x0, x1, hx in ((-48.4, -45.0, -46.5), (45.0, 48.4, 46.5)):
@@ -472,6 +470,11 @@ def rack_handle(x, z0, z1):
 
 def legend(body, x, z, size=1.5, material=None, align="LEFT", font=None, y=None):
     return text("legend " + body, body, x, F + 0.02 if y is None else y, z, size, material or M["ink"], align, font=font)
+
+
+# cable locker name plate (needs legend())
+box("locker name plate", -50, -26, 51.2, 51.5, 29, 36.4, M["devGrey"], bevel=0.2)
+legend("CABLE LOCKER", -38, 31.6, 1.4, font=VF_BOLD, align="CENTER", y=51.52)
 
 
 def lamp(x, z, off_mat, on_mat, r=1.25, y=F, lit=False):
@@ -745,7 +748,7 @@ def shmkx(tag, cx, cz):
     P = F + 1.4  # front face
     box(f"{tag} SHM-KX front", cx - 22.6, cx + 22.6, F + 0.4, P, cz - 8.5, cz + 8.5, M["shmFace"], bevel=0.4)
     for x in (cx - 23.45, cx + 23.45):
-        for z in (cz - 6.5, cz + 6.5):
+        for z in (cz - 7.0, cz + 7.0):  # mounting holes 70 mm apart (manual, appendix 6)
             screw(x, z, F + 0.4, r=0.38, washer=False)
 
     def sx(mm):

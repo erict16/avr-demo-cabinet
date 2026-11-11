@@ -21,7 +21,7 @@ const PLUG = [70, -66];
 
 // Rack slots, bottom to top, Gerrick's systems 1–6 (rev C, SPEC.md). 1U = 8.89 units, U1 starts at 54.1.
 const uz = (u) => 54.1 + (u - 1) * 8.89;
-const slotU = (a, b) => ({ z0: uz(a) + 0.2, z1: uz(b + 1) - 0.2 });
+const slotU = (a, b) => ({ z0: uz(a) + 0.079, z1: uz(b + 1) - 0.079 }); // EIA panel: n × 44.45 − 0.79 mm (4U = 177.0)
 export const SLOTS = {
   s1: slotU(1, 4), // HMIET-I AVR, T1 master (native 19″ 4U)
   s2: slotU(5, 8), // HMIET-I AVR, T2 follower
@@ -230,8 +230,8 @@ function fascia() {
 
 // ---------- rack units ----------
 function unit(name, slot, face, { lit = false, handles = true } = {}) {
-  const x0 = slot.x0 ?? -48;
-  const x1 = slot.x1 ?? 48;
+  const x0 = slot.x0 ?? -48.26; // 19″ panel, 482.6 mm
+  const x1 = slot.x1 ?? 48.26;
   const { z0, z1 } = slot;
   const out = [];
   out.push(S(k.slabOf({ x: x0, y: FRONT - CAVITY.depth, w: x1 - x0, d: RACK_F - FRONT + CAVITY.depth, r: 0.5 }, z0, z1 - z0, P, 2, 0.4), { tone: lit ? "hi" : "mid", lit, crease: lit ? "lo" : "faint" }));
@@ -261,9 +261,9 @@ const sysGroup = (no, inner) => `<g data-sys="${no}">${inner}</g>`;
 // Front positions are mm from the panel's left and top edges, converted to figure units.
 function hmiet(name, slot, { lit, unit: u }) {
   const { z0, z1 } = slot;
-  const X = (mm) => -48 + mm / 5;
+  const X = (mm) => -48.28 + mm / 5; // panel 482.8 mm
   const Z = (mm) => z1 - mm / 5;
-  let f = '<path fill="#c9cdd0" d="' + fr(-48, z0, 48, z1, 0.5) + '"/>';
+  let f = '<path fill="#c9cdd0" d="' + fr(-48.28, z0, 48.28, z1, 0.5) + '"/>';
   f += TX(X(462), Z(14), 1.45, "HMIET-Ⅰ AUTOMATIC VOLTAGE REGULATOR", ' text-anchor="end" fill="#2b3135" font-weight="600"');
   const LEDS = [["Run", "#3fbf63"], ["Fault", "#e0333c"], ["Remote", "#3fbf63"], ["Auto", "#3fbf63"], ["Parallel", "#3fbf63"], ["U/I Block", "#e0333c"], ["Tap Block", "#e0333c"], ["AVR Failed", "#e0333c"], ["Regulating", "#e08a00"], ["Par.Block", "#e0333c"]];
   LEDS.forEach(([label, color], i) => {
@@ -285,8 +285,8 @@ function hmiet(name, slot, { lit, unit: u }) {
   f += keyCap(kx, kz + 3.6, 3, 2.6, "▲") + keyCap(kx, kz - 3.6, 3, 2.6, "▼") + keyCap(kx - 3.8, kz, 2.6, 3, "◀") + keyCap(kx + 3.8, kz, 2.6, 3, "▶") + keyCap(kx, kz, 2.8, 2.8, "OK", 0.95);
   f += keyCap(kx + 9.6, kz + 2.2, 4.2, 2.6, "ESC") + keyCap(kx + 9.6, kz - 2.2, 4.2, 2.6, "RST");
   const cz = (z0 + z1) / 2;
-  for (const ex of [X(8.9), X(473.9)]) for (const dz of [-10.16, 10.16]) f += '<path class="dc-well" d="' + fr(ex - 0.65, cz + dz - 1.3, ex + 0.65, cz + dz + 1.3, 0.65) + '"/>' + fl(fr(ex - 0.65, cz + dz - 1.3, ex + 0.65, cz + dz + 1.3, 0.65), "lo");
-  return unit(name, slot, f, { lit, handles: false });
+  for (const ex of [X(10.5), X(475.5)]) for (const dz of [-10.16, 10.16]) f += '<path class="dc-well" d="' + fr(ex - 0.65, cz + dz - 1.3, ex + 0.65, cz + dz + 1.3, 0.65) + '"/>' + fl(fr(ex - 0.65, cz + dz - 1.3, ex + 0.65, cz + dz + 1.3, 0.65), "lo");
+  return unit(name, { ...slot, x0: -48.28, x1: 48.28 }, f, { lit, handles: false });
 }
 
 // HMIET-I remote control module, 19″ 2U (from the photo): POWER and RUN lamps, rotary switches
@@ -295,10 +295,10 @@ const RCM_SW = [["SA1", "REMOTE", "LOCAL", 129, 0], ["SA2", "AUTO", "MANUAL", 20
 const RCM_BT = [["S1", "1-N", "green", 343], ["S2", "N-1", "green", 385], ["S3", "STOP", "red", 427]];
 function rcm(name, slot, u) {
   const { z0, z1 } = slot;
-  const X = (mm) => -48 + mm / 5;
+  const X = (mm) => -48.26 + mm / 5;
   const Z = (mm) => z1 - mm / 5;
   const cz = Z(49), zTop = Z(20.5), zBot = Z(80.5);
-  let f = '<path fill="#d3d6d8" d="' + fr(-48, z0, 48, z1, 0.5) + '"/>';
+  let f = '<path fill="#d3d6d8" d="' + fr(-48.26, z0, 48.26, z1, 0.5) + '"/>';
   f += TX(X(14), zBot, 0.95, "REMOTE CONTROL · T" + (u + 1), ' fill="#2b3135" font-weight="600"');
   const out = [];
   // pilot lamps in chrome bezels
