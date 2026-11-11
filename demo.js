@@ -4,6 +4,7 @@
 // The AVR LCDs, the HMJK-II, the SHM-KX and the screen show the taps.
 const M = { STEP: 1.6, FOLLOW: 0.6, MIN: 1, MAX: 17, PEAK: 2.6, RUN: 1.4 };
 const svg = document.querySelector("svg.cab");
+const CH = JSON.parse(svg.closest("[data-chart]").dataset.chart);
 const q = (s) => svg.querySelector(s);
 const qa = (s) => [...svg.querySelectorAll(s)];
 const still = matchMedia("(prefers-reduced-motion: reduce)");
@@ -61,7 +62,7 @@ function press(unit, id) {
   }
   S.move = { unit, dir, t: 0 };
   say(`${t} ${dir > 0 ? "raising" : "lowering"}…`, true);
-  run();
+  if (!visible) run();
 }
 function finish(unit, dir) {
   S.tap[unit] += dir;
@@ -108,6 +109,10 @@ const els = {
   kxTap: q("[data-kx-tap]"),
   kxMode: q("[data-kx-mode]"),
   scr: [0, 1].map((u) => q(`[data-scr-tap="${u}"]`)),
+  hmiOps: [0, 1].map((u) => q(`[data-hmi-ops="${u}"]`)),
+  hmiMotor: q("[data-hmi-motor]"),
+  trend: q("[data-trend]"),
+  trend2: q("[data-trend2]"),
 };
 
 function draw() {
@@ -129,11 +134,9 @@ function draw() {
     const u = +g.dataset.unit, id = g.dataset.sw, pos = S.sw[u][id];
     if (g.dataset.pos !== String(pos)) {
       g.dataset.pos = pos;
-      const bar = g.querySelector(".sw-bar");
-      bar.setAttribute("transform", bar.getAttribute("transform").replace(/rotate\(-?\d+/, `rotate(${pos ? 40 : -40}`));
       g.setAttribute("aria-label", `${id} T${u + 1}: ${SW_POS[id][pos]}`);
-      svg.querySelector(`[data-sw-l="${id}-${u}-${pos}"]`).setAttribute("class", "t-ink sw-l");
-      svg.querySelector(`[data-sw-l="${id}-${u}-${1 - pos}"]`).setAttribute("class", "t-mute sw-l");
+      on(svg.querySelector(`[data-sw-l="${id}-${u}-${pos}"]`), true);
+      on(svg.querySelector(`[data-sw-l="${id}-${u}-${1 - pos}"]`), false);
     }
   }
   const t1 = S.move && S.move.unit === 0;
@@ -144,6 +147,30 @@ function draw() {
   text(els.kxTap, String(S.tap[0]));
   text(els.kxMode, `Work mode: ${S.sw[0].SA1 ? "Local" : "Remote"} ${S.sw[0].SA2 ? "manual" : "auto"}`);
   readout.forEach((el, i) => text(el, pad(S.tap[i])));
+  els.hmiOps.forEach((el, i) => text(el, `OPS ${ops5(S.ops[i])}`));
+  text(els.hmiMotor, `MOTOR T1 ${(t1 ? amps(S.move.t) : 0).toFixed(2)} A`);
+  trendLine(els.trend, 0);
+  trendLine(els.trend2, 1);
+}
+// tap trend on the screen: T1 solid, T2 dashed, the last 140 samples
+const shown = (u) => S.tap[u] + (S.move && S.move.unit === u ? S.move.dir * (S.move.t * S.move.t * (3 - 2 * S.move.t)) : 0);
+const trendLog = [];
+let sampleAt = 0;
+function sample(dt) {
+  sampleAt += dt;
+  if (sampleAt < 0.12 && trendLog.length) return;
+  sampleAt = 0;
+  trendLog.push([shown(0), shown(1)]);
+  if (trendLog.length > 140) trendLog.shift();
+}
+function trendLine(el, i) {
+  if (!el || trendLog.length < 2) return;
+  const { x0, x1, z0, z1, lo, hi } = CH;
+  el.setAttribute("points", trendLog.map((h, j) => {
+    const x = x1 - ((trendLog.length - 1 - j) / 139) * (x1 - x0);
+    const z = z0 + ((h[i] - lo) / (hi - lo)) * (z1 - z0);
+    return `${x.toFixed(1)},${(-z).toFixed(1)}`;
+  }).join(" "));
 }
 
 let frame = 0, last = 0;
@@ -151,11 +178,17 @@ function tick(now) {
   const dt = last ? Math.min((now - last) / 1000, 1 / 20) : 1 / 60;
   last = now;
   step(dt);
+  sample(dt);
   draw();
-  frame = busy() ? requestAnimationFrame(tick) : 0;
+  frame = visible || busy() ? requestAnimationFrame(tick) : 0;
 }
+let visible = false;
+new IntersectionObserver((entries) => {
+  visible = entries[entries.length - 1].isIntersecting && !still.matches;
+  if (visible) run();
+}, { rootMargin: "120px 0px" }).observe(svg);
 function run() {
-  if (!frame) {
+  if (!frame && (visible || busy())) {
     last = 0;
     frame = requestAnimationFrame(tick);
   }

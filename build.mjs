@@ -3,26 +3,23 @@
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { sheets, cabinetFront, SLOTS, RACK_ROWS, REV, DATE } from "./drawing.mjs";
+import { createHash } from "node:crypto";
+import * as k from "./kit/iso-kit.mjs";
+import { figure, BOXES, CHART, WIDTH, HEIGHT } from "./figure.mjs";
+import { sheets, RACK_ROWS, REV, DATE } from "./drawing.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const demo = readFileSync(join(HERE, "demo.js"), "utf8");
 const PDF = `drawings/avr-demo-cabinet-rev-${REV}.pdf`;
 if (!existsSync(join(HERE, PDF))) console.warn(`${PDF} missing: run node pdf.mjs first`);
+// file?v=<content hash>, so a browser never shows an old model or sheet after an update
+const v = (f) => existsSync(join(HERE, f)) ? `${f}?v=${createHash("sha1").update(readFileSync(join(HERE, f))).digest("hex").slice(0, 8)}` : f;
 const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const dateText = DATE.toLowerCase().replace(/^(\d+) (\w)(\w+) (\d+)$/, (_, d, a, b, y) => `${d} ${a.toUpperCase()}${b} ${y}`);
 
 // ---------- the cabinet front ----------
-const VB = { cabinet: [-345, -1832, 690, 1856], rack: [-306, -1174, 612, 918] };
-const badges = SLOTS.filter((s) => s.no)
-  .map((s) => `<g class="badge" data-badge="${s.no}"><circle cx="-275" cy="${-s.hc}" r="17"/><text x="-275" y="${-s.hc}" dy=".36em" text-anchor="middle">${s.no}</text></g>`)
-  .join("");
-const CAB_SVG = `<svg class="cab" viewBox="${VB.cabinet.join(" ")}" preserveAspectRatio="xMidYMid meet" role="group" aria-label="Front of the AVR demo cabinet">
-<ellipse class="shadow" cx="0" cy="2" rx="330" ry="14"/>
-<line class="floor" x1="-345" y1="0" x2="345" y2="0"/>
-${cabinetFront()}
-<g class="badges">${badges}</g>
-</svg>`;
+const VB = { cabinet: [0, 0, WIDTH, HEIGHT] };
+const CAB_SVG = `<div class="iso dc-fig" data-theme="light" data-chart='${JSON.stringify(CHART)}'>${figure()}</div>`;
 
 // ---------- page parts ----------
 const I = {
@@ -42,7 +39,7 @@ const systems = RACK_ROWS.map((r) => `<li><button type="button" class="sys-row${
 
 const SHEETS = sheets();
 const sheetCards = SHEETS.map((s, i) => `<li><button type="button" class="sheet" data-sheet="${i}">
-  <span class="paper"><img src="drawings/sheet-${i + 1}.svg" alt="" loading="lazy" width="297" height="210"></span>
+  <span class="paper"><img src="${v(`drawings/sheet-${i + 1}.svg`)}" alt="" loading="lazy" width="297" height="210"></span>
   <span class="cap"><span>${i + 1} · ${esc(s.title)}</span><span class="sc">${s.scale}</span></span>
 </button></li>`).join("");
 
@@ -104,8 +101,9 @@ button{font:inherit;color:inherit}
 .taps{display:flex;gap:6px}
 .taps span{display:inline-flex;align-items:baseline;gap:6px;padding:5px 10px;border-radius:7px;background:var(--sunk);font-size:.8125rem;color:var(--muted)}
 .taps b{font:600 .9375rem var(--mono);color:var(--ink)}
-.view{position:relative;height:clamp(500px,calc(100svh - 300px),860px);background:var(--stage)}
+.view{position:relative;height:clamp(500px,calc(100svh - 300px),860px);background:#fff}
 .view svg.cab{display:block;width:100%;height:100%}
+.view model-viewer[hidden]{display:none}
 .view model-viewer{position:absolute;inset:0;width:100%;height:100%;background:var(--stage);--poster-color:transparent;--progress-bar-color:var(--accent)}
 .foot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border-top:1px solid var(--line);min-height:61px}
 .status{font-size:.875rem;color:var(--text);min-width:0}
@@ -171,76 +169,45 @@ dialog.viewer::backdrop{background:#0f172a8c;backdrop-filter:blur(2px)}
 .v-body.zoom{cursor:zoom-out}
 .v-body.zoom img{width:max(1800px,200%);height:auto;filter:none}
 
-/* cabinet drawing */
-.cab text{font-family:var(--f);font-weight:500}
-.cab .o,.cab .ok,.cab .d{fill:none;stroke:#2b3137;stroke-width:1px;vector-effect:non-scaling-stroke;stroke-linejoin:round}
-.cab .d{stroke:#6b737b;stroke-width:.8px}
-.cab .pr,.cab .h{display:none}
-.cab .floor{stroke:#c9ced5;stroke-width:1px;vector-effect:non-scaling-stroke}
-.cab .shadow{fill:#0f172a;opacity:.08}
-.cab .f-frame{fill:#383e42;stroke:#24292d}
-.cab .f-seam{stroke:#2a2f33}
-.cab .f-panel{fill:#c9ccc8;stroke:#9da19d}
-.cab .f-top{fill:#2f3438;stroke:#1f2326}
-.cab .f-bay{fill:#1b1f22;stroke:#111}
-.cab .f-rail{fill:#a7adb2;stroke:#80878d}
-.cab .f-dev{fill:#e3e6e8;stroke:#a3aab0}
-.cab .f-dev-w{fill:#f6f7f8;stroke:#a3aab0}
-.cab .f-plate{fill:#d5d8db;stroke:#a3aab0}
-.cab .f-flange{fill:#c4c9cd;stroke:#959ca2}
-.cab .f-hole{fill:#8d949a;stroke:none}
-.cab .f-bezel{fill:#2b3035;stroke:none}
-.cab .g.f-lcd{fill:#0e2830;stroke:none}
-.cab .g.f-lcd-w{fill:#e6f0f5;stroke:#9aa7b0}
-.cab .f-kx-bar{fill:#c8d6df}
-.cab .f-key{fill:#c6cbd0;stroke:#868d94}
-.cab .f-tag{fill:#eef0f2;stroke:#a3aab0}
-.cab .f-ring{fill:#bcc1c6;stroke:#878e95}
-.cab .f-knob{fill:#202428;stroke:#0e1012}
-.cab .f-pointer{fill:#f4f4f4}
-.cab .f-btn-g{fill:#2fa45a;stroke:#1c7a3f}
-.cab .f-btn-r{fill:#d83b3b;stroke:#a32626}
-.cab .f-gloss{fill:#fff;opacity:.3;pointer-events:none}
-.cab .f-monitor{fill:#16191c;stroke:#0c0e10}
-.cab .f-screen{fill:#0d1a28;stroke:none}
-.cab .f-tile{fill:#132840}
-.cab .f-mesh{fill:#2d3236}
-.cab .dot{fill:#1b1e21}
-.cab .f-stand{fill:#2a2e32;stroke:#1a1d20}
-.cab .f-metal{fill:#9aa0a5;stroke:#6f767c}
-.cab .f-wheel{fill:#1d2125;stroke:#0c0e10}
-.cab .f-brake{fill:#b8432f;stroke:#8a2f20}
-.cab .f-handle,.cab .f-lock{fill:#8e959b;stroke:#6b7278}
-.cab .f-slot{fill:#24292d;stroke:none}
-.cab .f-tray{fill:#41474c;stroke:#2a2f33}
-.cab .f-duct{fill:#30363a;stroke:#1f2326}
-.cab .led{stroke:#2b3035;stroke-width:.6px;vector-effect:non-scaling-stroke;fill:#596067;transition:fill .12s}
-.cab .led-g[data-on]{fill:#3ee07a}
-.cab .led-a[data-on]{fill:#ffae2e}
-.cab .led-r[data-on]{fill:#ff4d4d}
-.cab .t-ink{fill:#2b3137}
-.cab .t-mute{fill:#737b83}
-.cab .t-faint{fill:#8f979e;letter-spacing:.06em}
-.cab .t-b{font-weight:700}
-.cab .t-lcd{fill:#9ef0c5;font-family:var(--mono);font-weight:500}
-.cab .t-scr{fill:#dbe8ff;font-family:var(--mono)}
-.cab .t-dim{opacity:.62}
-.cab .t-big{font-weight:700}
-.cab .t-kx{fill:#1a237e;font-family:var(--mono);font-weight:700}
-.cab .hit{fill:transparent;stroke:none}
+/* cabinet figure (Anatomy kit, light theme) */
+.iso[data-theme="light"]{--anatomy-card:#fff;--anatomy-paper:#fff;--anatomy-muted:#64748b}
+.dc-fig{position:absolute;inset:0;overflow:hidden}
+.dc-fig svg.cab{display:block;width:100%;height:100%;overflow:hidden;user-select:none}
+.cab text{font-family:Inter,Arial,sans-serif}
+.cab .dc-mono{font-family:var(--mono)}
+.cab .dc-well{fill:var(--anatomy-shade-0)}
+.cab .dc-glass{fill:#071210}
+.cab .dc-led{fill:var(--anatomy-shade-0);stroke:var(--anatomy-lo);stroke-width:.3}
+.cab .dc-led[data-on]{fill:#ffb347}
+.cab .dc-lamp{fill:#5b6268;transition:fill .15s}
+.cab .dc-lamp[data-on]{fill:var(--c)}
+.cab .dc-swl{fill:#8a9197}
+.cab .dc-swl[data-on]{fill:#1b1f22;font-weight:700}
+.cab .sw[data-pos="0"] .p1,.cab .sw[data-pos="1"] .p0{display:none}
+.cab .dc-knob .iso-fill,.cab .dc-knob .iso-top{fill:#24282c}
+.cab .dc-knob .iso-shade{fill:#191c1f}
+.cab .dc-knob .iso-edge{stroke:#0e1012}
+.cab .dc-green .iso-fill,.cab .dc-green .iso-top{fill:#2a9a52}.cab .dc-green .iso-shade{fill:#1f7a40}
+.cab .dc-red .iso-fill,.cab .dc-red .iso-top{fill:#cf3434}.cab .dc-red .iso-shade{fill:#a32626}
+.cab .dc-green-cap{fill:#34b35f}.cab .dc-red-cap{fill:#de4040}
+.cab .dc-cap{stroke:#0e1012;stroke-width:.15}
+.cab .dc-hit{fill:transparent;stroke:none}
 .cab .sw,.cab .bt{cursor:pointer;outline:none}
-.cab .sw-bar{transition:transform .18s var(--ease)}
-.cab .bt .f-btn{transition:transform .1s var(--ease);transform-box:fill-box;transform-origin:center}
-.cab .bt:active .f-btn{transform:scale(.9)}
-.cab .sw:focus-visible .hit,.cab .bt:focus-visible .hit{stroke:var(--accent);stroke-width:2px;vector-effect:non-scaling-stroke}
-@media (hover:hover){.cab .sw:hover .hit,.cab .bt:hover .hit{fill:#1d4ed814}}
-.cab .sys{transition:opacity .2s}
-.cab.picked .sys{opacity:.3}
-.cab.picked .sys[data-on]{opacity:1}
-.cab .badge circle{fill:#fff;stroke:#c9ced5;stroke-width:1px;vector-effect:non-scaling-stroke}
-.cab .badge text{font-size:19px;font-weight:600;fill:#0f172a}
-.cab .badge[data-on] circle{fill:var(--accent);stroke:var(--accent)}
-.cab .badge[data-on] text{fill:#fff}
+.cab .bt:active .dc-cap{opacity:.8}
+.cab .sw:focus-visible .dc-hit,.cab .bt:focus-visible .dc-hit{stroke:var(--accent);stroke-width:.4}
+@media (hover:hover){.cab .sw:hover .dc-hit,.cab .bt:hover .dc-hit{fill:#1d4ed81a}}
+.cab .dc-hmi-bar{fill:#0f2c27}
+.cab .dc-hmi-h{font:2.4px var(--mono);fill:#8ff0d0}
+.cab .dc-hmi-s{font:2.2px var(--mono);fill:#5fbfa5}
+.cab .dc-hmi-big{font:700 7px var(--mono);fill:#eafff8}
+.cab .dc-hmi-tile{fill:#0c211d;stroke:#1d4a41;stroke-width:.3}
+.cab .dc-hmi-grid{fill:none;stroke:#1d4a41;stroke-width:.3}
+.cab .dc-hmi-set{fill:none;stroke:#5fbfa5;stroke-width:.25;stroke-dasharray:1 1}
+.cab .dc-hmi-trend{fill:none;stroke:#ffb347;stroke-width:.6;stroke-linejoin:round}
+.cab .dc-hmi-trend2{fill:none;stroke:#8ff0d0;stroke-width:.45;stroke-dasharray:1.2 .8;stroke-linejoin:round}
+.cab [data-sys]{transition:opacity .25s}
+.cab.picked [data-sys]{opacity:.22}
+.cab.picked [data-sys][data-on]{opacity:1}
 
 @media (max-width:1040px){
   .hero{grid-template-columns:1fr}
@@ -265,9 +232,15 @@ dialog.viewer::backdrop{background:#0f172a8c;backdrop-filter:blur(2px)}
 // ---------- page script (views, picking, sheet viewer) ----------
 const SITE_JS = `
 const VB = ${JSON.stringify(VB)};
-const SYS = ${JSON.stringify(Object.fromEntries(SLOTS.map((s) => [s.no || "spare", [s.a, s.b]])))};
-const SHEETS = ${JSON.stringify(SHEETS.map((s, i) => ({ title: s.title, scale: s.scale, src: `drawings/sheet-${i + 1}.svg` })))};
+const BOX = ${JSON.stringify(BOXES)};
+const SHEETS = ${JSON.stringify(SHEETS.map((s, i) => ({ title: s.title, scale: s.scale, src: v(`drawings/sheet-${i + 1}.svg`) })))};
 const stage = document.querySelector(".stage");
+function fitBox([x0, y0, x1, y1], pad = 12) {
+  const r = cab.clientHeight / cab.clientWidth || 1.4;
+  let w = x1 - x0 + 2 * pad, h = y1 - y0 + 2 * pad;
+  if (h / w < r) h = w * r; else w = h / r;
+  return [(x0 + x1) / 2 - w / 2, (y0 + y1) / 2 - h / 2, w, h];
+}
 const cab = stage.querySelector("svg.cab");
 const reduce = matchMedia("(prefers-reduced-motion: reduce)");
 let vb = VB.cabinet.slice(), anim = 0;
@@ -287,10 +260,7 @@ function zoomSys(no) {
   if (stage.dataset.view === "model") show("rack");
   segs.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.viewBtn === "rack")));
   stage.dataset.view = "rack";
-  const [a, b] = SYS[no], k = cab.clientHeight / cab.clientWidth;
-  let w = 560, h = w * k;
-  if (h < b - a + 90) { h = b - a + 90; w = h / k; }
-  zoom([-10 - w / 2, -(a + b) / 2 - h / 2, w, h]);
+  zoom(fitBox(BOX[no], 26));
 }
 let mvLoaded = false;
 const mv = stage.querySelector("model-viewer");
@@ -305,7 +275,7 @@ function show(name) {
     mvLoaded = true;
     import("https://cdn.jsdelivr.net/npm/@google/model-viewer@3.5.0/dist/model-viewer.min.js");
   }
-  if (!model) zoom(VB[name]);
+  if (!model) zoom(name === "rack" ? fitBox(BOX.rack, 6) : VB.cabinet);
 }
 segs.forEach((b) => b.addEventListener("click", () => show(b.dataset.viewBtn)));
 
@@ -321,7 +291,7 @@ function pick(no) {
   rows.forEach((r) => r.setAttribute("aria-pressed", String(r.dataset.pick === picked)));
   mark(picked);
   if (picked) zoomSys(picked);
-  else if (stage.dataset.view === "rack") zoom(VB.rack);
+  else if (stage.dataset.view === "rack") zoom(fitBox(BOX.rack, 6));
   if (picked && matchMedia("(max-width:1040px)").matches) stage.scrollIntoView({ behavior: reduce.matches ? "auto" : "smooth", block: "start" });
 }
 rows.forEach((r) => {
@@ -383,7 +353,7 @@ const html = `<!doctype html>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap">
-<style>${CSS}</style>
+<style>${k.ISO_CSS}${CSS}</style>
 </head>
 <body>
 <header class="top wrap">
@@ -393,7 +363,7 @@ const html = `<!doctype html>
   </div>
   <div class="top-r">
     <span class="rev">Rev ${REV} · ${dateText}</span>
-    <a class="btn primary" href="${PDF}" download>${I.down}Drawings PDF</a>
+    <a class="btn primary" href="${v(PDF)}" download>${I.down}Drawings PDF</a>
   </div>
 </header>
 
@@ -410,7 +380,7 @@ const html = `<!doctype html>
     </div>
     <div class="view">
       ${CAB_SVG}
-      <model-viewer hidden src="models/cabinet.glb" ios-src="models/cabinet.usdz" poster="models/poster.webp" alt="3D model of the AVR demo cabinet" camera-controls touch-action="pan-y" ar ar-modes="webxr scene-viewer quick-look" shadow-intensity="0.6" exposure="1.05" camera-orbit="-28deg 78deg auto"></model-viewer>
+      <model-viewer hidden src="${v("models/cabinet.glb")}" ios-src="${v("models/cabinet.usdz")}" poster="${v("models/poster.webp")}" alt="3D model of the AVR demo cabinet" camera-controls touch-action="pan-y" ar ar-modes="webxr scene-viewer quick-look" shadow-intensity="0.6" exposure="1.05" camera-orbit="-28deg 78deg auto"></model-viewer>
     </div>
     <div class="foot">
       <p class="status" data-status aria-live="polite"></p>
@@ -434,7 +404,7 @@ const html = `<!doctype html>
 </div>
 
 <section class="block wrap" id="drawings" aria-labelledby="h-dr">
-  <div class="head"><h2 id="h-dr">Drawings</h2><a class="btn" href="${PDF}" download>${I.down}PDF · A4</a></div>
+  <div class="head"><h2 id="h-dr">Drawings</h2><a class="btn" href="${v(PDF)}" download>${I.down}PDF · A4</a></div>
   <ol class="sheets">${sheetCards}</ol>
 </section>
 

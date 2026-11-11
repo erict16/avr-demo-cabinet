@@ -5,7 +5,8 @@ A mobile 19″ demo cabinet (rev C, 20U) built to Gerrick's sketch "Control Pane
 **Live site:** https://erict16.github.io/avr-demo-cabinet/
 
 - `SPEC.md` is the shared spec: sizes, the rack layout, the device fronts and what is still TBC.
-- `drawing.mjs` draws the cabinet front once and uses it twice: the three A4 sheets (general arrangement 1:12, rack front 1:6, system layout 1:15) and the live front on the website (`cabinetFront()`).
+- `figure.mjs` draws the live isometric cabinet on the website with the Anatomy kit in `kit/`.
+- `drawing.mjs` draws the three A4 sheets (general arrangement 1:12, rack front 1:6, system layout 1:15).
 - `demo.js` runs the live demo: the remote control module switches and buttons drive the AVRs, and the HMJK-II, SHM-KX and screen follow.
 - `pdf.mjs` writes `drawings/sheet-N.svg` and prints `drawings/avr-demo-cabinet-rev-C.pdf` with headless Edge or Chrome.
 - `build.mjs` writes `index.html`: `node pdf.mjs && node build.mjs`
