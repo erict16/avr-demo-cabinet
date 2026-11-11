@@ -12,21 +12,20 @@ const ZB = 20; // underside of the body, on top of the castors
 const ZW = 268; // worktop, 1240 mm above the body underside
 const ZTOP = 360; // 1700 mm body
 const BODY = { x: -60, y: -50, w: 120, d: 100, r: 1.2 };
-const TRAY = { x: -44, y: FRONT, w: 88, d: 40, r: 1.2 };
+const TRAY = { x: -44, y: FRONT, w: 88, d: 2, r: 1.2 }; // keyboard tray, pushed in (rev B: the rack now reaches up to it)
 const TRAY_Z = 257;
-const CAVITY = { x0: -50, x1: 50, z0: 54, z1: 232, r: 1.2, depth: 9 };
+const CAVITY = { x0: -50, x1: 50, z0: 54, z1: 250, r: 1.2, depth: 9 }; // 22U rack, 270–1250 mm
 const RACK_F = FRONT - 1.6; // front of the rack units
 const MON = { x0: -46, x1: 46, y0: 26, y1: 30, z0: 278, z1: 334 };
 const PLUG = [70, -66];
 
-// Rack slots, bottom to top, from the sketch (≈U in comments).
+// Rack slots, bottom to top (rev B, SPEC.md). 1U = 8.89 units, U1 starts at 54.1.
 export const SLOTS = {
-  s1: { z0: 54.4, z1: 89.4 }, // U1–4 grid source
-  s2: { z0: 90, z1: 125 }, // U5–8 tap-changer simulator
-  s3: { z0: 125.6, z1: 160.6 }, // U9–12 HMIET-I AVR, T1 master (native 19″ 4U)
-  s4: { z0: 161.2, z1: 196.2 }, // U13–16 HMIET-I AVR, T2 follower
-  s56: { z0: 196.8, z1: 223 }, // U17–19 two HMC-3C position indicators on a 3U plate
-  brush: { z0: 223.4, z1: 231.8 }, // U20 brush-strip cable entry
+  s1: { z0: 54.4, z1: 80.6 }, // U1–3 tap-changer simulator, 3U
+  s2: { z0: 81, z1: 151.6 }, // U4–11 two HMJK-II OLTC monitors, upright on an 8U plate
+  s3: { z0: 152, z1: 187.4 }, // U12–15 HMIET-I AVR, T1 master (native 19″ 4U)
+  s4: { z0: 187.6, z1: 223 }, // U16–19 HMIET-I AVR, T2 follower
+  s56: { z0: 223.2, z1: 249.6 }, // U20–22 two HMC-3C position indicators on a 3U plate
 };
 
 export const P = k.fitProjection(
@@ -215,9 +214,7 @@ function locker() {
 }
 
 function fascia() {
-  let face = "";
-  for (let i = 0; i < 10; i++) face += fl(fr(-46 + i * 9.4, 238, -40.4 + i * 9.4, 241, 1), "lo");
-  face += fl(fr(-46, 255.2, 46, 263.4, 1), "faint");
+  const face = fl(fr(-46, 255.2, 46, 263.4, 1), "faint");
   return onFace(FRONT, face);
 }
 
@@ -246,103 +243,90 @@ function unit(name, slot, face, { lit = false, handles = true } = {}) {
 
 const vents = (x0, z0, count, w = 2.2, h = 8, gap = 3.6) => Array.from({ length: count }, (_, i) => fl(fr(x0 + i * gap, z0, x0 + i * gap + w, z0 + h, w / 2.2), "lo")).join("");
 
-function source() {
-  const s = SLOTS.s1;
-  const kx = -30;
-  const kz = (s.z0 + s.z1) / 2;
-  let face = "";
-  // knob scale: ring with ticks growing from it
-  face += fl(circle(kx, kz, 8.2, 60), "faint");
-  let minor = "";
-  let major = "";
-  for (let i = 0; i <= 24; i++) {
-    const a = ((-135 + (i * 270) / 24) * Math.PI) / 180;
-    const len = i % 6 === 0 ? 2 : 1.1;
-    const seg = `M${n(kx + 8.2 * Math.sin(a))} ${n(-kz - 8.2 * Math.cos(a))}L${n(kx + (8.2 + len) * Math.sin(a))} ${n(-kz - (8.2 + len) * Math.cos(a))}`;
-    if (i % 6 === 0) major += seg;
-    else minor += seg;
-  }
-  face += fl(minor, "lo") + fl(major, "mid");
-  // analogue meter: grid voltage in %
-  const mz = s.z0 + 6;
-  face += `<path class="dc-dial" d="${fr(-14, s.z0 + 4, 14, s.z1 - 4, 1.4)}"/>` + fl(fr(-14, s.z0 + 4, 14, s.z1 - 4, 1.4), "lo");
-  let mt = "";
-  let mM = "";
-  for (let i = 0; i <= 20; i++) {
-    const a = ((-50 + i * 5) * Math.PI) / 180;
-    const r0 = 18;
-    const len = i % 5 === 0 ? 2.2 : 1.2;
-    const seg = `M${n(Math.sin(a) * r0)} ${n(-mz - Math.cos(a) * r0)}L${n(Math.sin(a) * (r0 + len))} ${n(-mz - Math.cos(a) * (r0 + len))}`;
-    if (i % 5 === 0) mM += seg;
-    else mt += seg;
-  }
-  const arc = Array.from({ length: 21 }, (_, i) => {
-    const a = ((-50 + i * 5) * Math.PI) / 180;
-    return `${i ? "L" : "M"}${n(Math.sin(a) * 18)} ${n(-mz - Math.cos(a) * 18)}`;
-  }).join("");
-  const mclip = `dc-meter-clip`;
-  face += `<clipPath id="${mclip}"><path d="${fr(-14, s.z0 + 4, 14, s.z1 - 4, 1.4)}"/></clipPath><g clip-path="url(#${mclip})">`;
-  face += fl(arc, "mid") + fl(mt, "lo") + fl(mM, "hi");
-  face += `<path data-meter class="iso-line" data-tone="lit" data-free="end" style="stroke-width:.7" transform="rotate(0 0 ${-mz})" d="M0 ${-mz}L0 ${n(-mz - 19.6)}"/>`;
-  face += `<path class="dc-hub" d="${circle(0, mz, 1.2, 16)}"/></g>`;
-  face += `<text class="dc-scale" x="-12.4" y="${n(-(s.z0 + 5.2))}">GRID %</text>`;
-  // switch, lamp, vents
-  face += fl(fr(22, s.z1 - 12, 30, s.z1 - 5, 0.8), "lo");
-  face += `<path class="dc-led" data-on="1" d="${circle(36, s.z1 - 8.5, 1.4, 16)}"/>`;
-  face += vents(21, s.z0 + 5, 7);
-  const out = [unit("s1", s, face)];
-  // the grid knob: a turned knob standing proud of the panel
-  const F = G.frameOf([kx, RACK_F, kz], [0, 1, 0], [1, 0, 0], [0, 0, 1]);
-  out.push(S(G.disc(0, 0.8, 7.2, F, P), { tone: "mid" }));
-  out.push(S(G.disc(0.8, 4.4, 6, F, P), { tone: "hi", lit: true, inner: k.fadedSvg(G.ribsOf(F, 0.8, 4.4, 6, 44, P, { fade: [0.04, 0.4] }), { tone: "lo" }) }));
-  out.push(onFace(RACK_F + 4.4, `<g data-knob transform="rotate(0 ${kx} ${-kz})">${fl(`M${kx} ${-kz}L${kx} ${n(-kz - 4.6)}`, "lit", ` data-free="both" style="stroke-width:.9"`)}</g>`));
-  return out.join("");
-}
-
+// Tap-changer simulator, 3U: tap dial Ø110, counter, raise/lower lamps, motor window, crank socket.
 function tapSim() {
-  const s = SLOTS.s2;
-  const cx = -22;
+  const s = SLOTS.s1;
+  const cx = -30;
   const cz = (s.z0 + s.z1) / 2;
+  const R0 = 11;
   let face = "";
-  face += fl(circle(cx, cz, 15.6, 72), "lo");
-  face += `<path class="dc-dial" d="${circle(cx, cz, 14.4, 72)}"/>` + fl(circle(cx, cz, 14.4, 72), "mid");
-  face += fl(circle(cx, cz, 11.4, 72), "faint");
+  face += fl(circle(cx, cz, R0 + 1, 72), "lo");
+  face += `<path class="dc-dial" d="${circle(cx, cz, R0, 72)}"/>` + fl(circle(cx, cz, R0, 72), "mid");
+  face += fl(circle(cx, cz, R0 - 2.4, 72), "faint");
   let minor = "";
   let major = "";
   let labels = "";
   for (let t = 1; t <= 17; t++) {
     const a = ((-135 + ((t - 1) * 270) / 16) * Math.PI) / 180;
-    const len = t % 4 === 1 ? 2.4 : 1.3;
-    const seg = `M${n(cx + 11.4 * Math.sin(a))} ${n(-cz - 11.4 * Math.cos(a))}L${n(cx + (11.4 + len) * Math.sin(a))} ${n(-cz - (11.4 + len) * Math.cos(a))}`;
+    const r0 = R0 - 2.4;
+    const len = t % 4 === 1 ? 1.8 : 1;
+    const seg = `M${n(cx + r0 * Math.sin(a))} ${n(-cz - r0 * Math.cos(a))}L${n(cx + (r0 + len) * Math.sin(a))} ${n(-cz - (r0 + len) * Math.cos(a))}`;
     if (t % 4 === 1) {
       major += seg;
-      labels += `<text class="dc-scale" x="${n(cx + 8.2 * Math.sin(a))}" y="${n(-cz - 8.2 * Math.cos(a) + 1)}" text-anchor="middle">${t}</text>`;
+      labels += `<text class="dc-scale" x="${n(cx + 6 * Math.sin(a))}" y="${n(-cz - 6 * Math.cos(a) + 0.8)}" text-anchor="middle">${t}</text>`;
     } else minor += seg;
   }
   face += fl(minor, "lo") + fl(major, "hi") + labels;
-  face += `<g data-tap-pointer transform="rotate(0 ${cx} ${-cz})">${fl(`M${cx} ${n(-cz + 2.4)}L${cx} ${n(-cz - 10.8)}`, "lit", ` data-free="both" style="stroke-width:1.1"`)}</g>`;
-  face += `<path class="dc-hub" d="${circle(cx, cz, 1.6, 20)}"/>`;
+  face += `<g data-tap-pointer transform="rotate(0 ${cx} ${-cz})">${fl(`M${cx} ${n(-cz + 1.8)}L${cx} ${n(-cz - (R0 - 3.2))}`, "lit", ` data-free="both" style="stroke-width:1"`)}</g>`;
+  face += `<path class="dc-hub" d="${circle(cx, cz, 1.2, 20)}"/>`;
   // operation counter
-  face += `<path class="dc-lcd" d="${fr(4, s.z1 - 13, 30, s.z1 - 5, 0.8)}"/>` + fl(fr(4, s.z1 - 13, 30, s.z1 - 5, 0.8), "lo");
-  face += `<text data-ops class="dc-digits" x="17" y="${n(-(s.z1 - 7.2))}" text-anchor="middle">01247</text>`;
+  face += `<path class="dc-lcd" d="${fr(-4, s.z1 - 10, 22, s.z1 - 3.4, 0.8)}"/>` + fl(fr(-4, s.z1 - 10, 22, s.z1 - 3.4, 0.8), "lo");
+  face += `<text data-ops class="dc-digits" x="9" y="${n(-(s.z1 - 5.2))}" text-anchor="middle">01247</text>`;
   // raise / lower lamps as arrows
-  face += `<path data-raise class="dc-led" d="M6 ${n(-(s.z0 + 17))}l3 -5l3 5z"/>`;
-  face += `<path data-lower class="dc-led" d="M16 ${n(-(s.z0 + 17 - 5))}l3 5l3 -5z"/>`;
+  face += `<path data-raise class="dc-led" d="M-3 ${n(-(s.z0 + 4))}l2.6 -4.4l2.6 4.4z"/>`;
+  face += `<path data-lower class="dc-led" d="M4 ${n(-(s.z0 + 8.4))}l2.6 4.4l2.6 -4.4z"/>`;
   // motor window with a turning rotor
-  const mx = 37;
-  const mz = s.z0 + 12;
-  face += `<path class="dc-well" d="${circle(mx, mz, 6.2, 36)}"/>` + fl(circle(mx, mz, 6.2, 36), "lo");
+  const mx = 38;
+  const mz = cz;
+  face += `<path class="dc-well" d="${circle(mx, mz, 6, 36)}"/>` + fl(circle(mx, mz, 6, 36), "lo");
   const spokes = Array.from({ length: 6 }, (_, i) => {
     const a = (i * Math.PI) / 3;
-    return `M${n(mx + 1.4 * Math.cos(a))} ${n(-mz + 1.4 * Math.sin(a))}L${n(mx + 5.4 * Math.cos(a))} ${n(-mz + 5.4 * Math.sin(a))}`;
+    return `M${n(mx + 1.3 * Math.cos(a))} ${n(-mz + 1.3 * Math.sin(a))}L${n(mx + 5.2 * Math.cos(a))} ${n(-mz + 5.2 * Math.sin(a))}`;
   }).join("");
-  face += `<g data-rotor transform="rotate(0 ${mx} ${-mz})">${fl(spokes, "mid")}${fl(circle(mx, mz, 1.4, 16), "mid")}${fl(circle(mx, mz, 5.4, 36), "faint")}</g>`;
-  face += vents(4, s.z0 + 4, 5, 2, 6, 3.4);
-  const out = [unit("s2", s, face)];
+  face += `<g data-rotor transform="rotate(0 ${mx} ${-mz})">${fl(spokes, "mid")}${fl(circle(mx, mz, 1.3, 16), "mid")}${fl(circle(mx, mz, 5.2, 36), "faint")}</g>`;
+  face += vents(13, s.z0 + 3, 3, 2, 6, 3.4);
+  const out = [unit("s1", s, face)];
   // hand-crank socket
-  const F = G.frameOf([24, RACK_F, s.z0 + 14], [0, 1, 0], [1, 0, 0], [0, 0, 1]);
-  out.push(S(G.disc(0, 1.4, 3, F, P), { tone: "mid" }));
-  out.push(onFace(RACK_F + 1.4, fl(circle(24, s.z0 + 14, 1.4, 16), "lo") + fl(`M22.9 ${-(s.z0 + 14)}h2.2`, "lo", ` data-free="both"`)));
+  const F = G.frameOf([27, RACK_F, s.z0 + 6], [0, 1, 0], [1, 0, 0], [0, 0, 1]);
+  out.push(S(G.disc(0, 1.4, 2.6, F, P), { tone: "mid" }));
+  out.push(onFace(RACK_F + 1.4, fl(circle(27, s.z0 + 6, 1.2, 16), "lo") + fl(`M26 ${-(s.z0 + 6)}h2`, "lo", ` data-free="both"`)));
+  return out.join("");
+}
+
+// Two HMJK-II OLTC monitors, upright modules 130 × 340.4 mm, centres 150 mm apart on one 8U plate.
+const HMJK_LEDS = [["Run", "#3fbf63", "run"], ["Fault", "#e0333c"], ["Mon. warning", "#e08a00"], ["Mon. alarm", "#e0333c"], ["Motor running", "#e08a00", "motor"], ["Motor alarm", "#e0333c"], ["Vibration", "#e08a00"], ["Oil temp.", "#e0333c"]];
+function hmjkPair() {
+  const s = SLOTS.s2;
+  const cz = (s.z0 + s.z1) / 2;
+  const out = [unit("s2", s, "", { handles: false })];
+  const T = (x, z, size, body, extra = "") => '<text x="' + n(x) + '" y="' + n(-z) + '" font-size="' + size + '" font-family="Barlow,Arial,sans-serif"' + extra + ">" + body + "</text>";
+  const key = (x, z, w, h, label, size = 0.9) => '<path fill="#e9ebec" d="' + fr(x - w / 2, z - h / 2, x + w / 2, z + h / 2, 0.4) + '"/>' + fl(fr(x - w / 2, z - h / 2, x + w / 2, z + h / 2, 0.4), "lo") + (label ? T(x, z - 0.35, size, label, ' text-anchor="middle" fill="#2b3135" font-weight="600"') : "");
+  [["T1", -15], ["T2", 15]].forEach(([t, cx], i) => {
+    const H = { x0: cx - 13, x1: cx + 13, z0: cz - 34, z1: cz + 34 };
+    const g = [S(k.slabOf({ x: H.x0, y: RACK_F, w: H.x1 - H.x0, d: 1, r: 0.6 }, H.z0, H.z1 - H.z0, P, 3, 0.3), { tone: "mid" })];
+    let f = '<path fill="#d9dcdc" d="' + fr(H.x0, H.z0, H.x1, H.z1, 0.6) + '"/>' + fl(fr(H.x0, H.z0, H.x1, H.z1, 0.6), "lo");
+    f += T(H.x0 + 2.2, H.z1 - 4, 1.6, "HMJK-Ⅱ", ' fill="#1b1f22" font-weight="700"') + T(H.x1 - 2.2, H.z1 - 4, 1.6, t, ' text-anchor="end" fill="#1b1f22" font-weight="700"');
+    f += T(H.x0 + 2.2, H.z1 - 5.6, 0.85, "OLTC MONITOR", ' fill="#3a4045"');
+    // LCD 57 × 48 mm
+    const L = { x0: cx - 5.7, x1: cx + 5.7, z0: H.z1 - 17.4, z1: H.z1 - 7.8 };
+    f += '<path fill="#14181b" d="' + fr(L.x0 - 0.6, L.z0 - 0.6, L.x1 + 0.6, L.z1 + 0.6, 0.5) + '"/>';
+    f += '<path fill="#0b1a20" d="' + fr(L.x0, L.z0, L.x1, L.z1, 0.3) + '"/>';
+    f += T(L.x0 + 0.8, L.z1 - 1.5, 0.95, "TAP", ' fill="#7fe0ff"') + T(L.x1 - 0.8, L.z1 - 1.5, 0.95, "0.00 A", ' data-hmjk-i text-anchor="end" fill="#7fe0ff"');
+    f += T(cx, L.z0 + 2.4, 4.6, "09", ' data-hmjk-tap text-anchor="middle" fill="#eaf6ff" font-weight="700"');
+    f += T(cx, L.z0 + 0.9, 0.95, "OPS 01247", ' data-hmjk-ops text-anchor="middle" fill="#7fe0ff"');
+    HMJK_LEDS.forEach(([label, color, k2], j) => {
+      const z = H.z1 - 21 - j * 2.7;
+      f += '<path fill="#3a4045" d="' + circle(H.x0 + 3, z, 0.6, 12) + '"/>';
+      f += '<path' + (k2 ? ' data-hmjk-led="' + k2 + '"' : "") + ' class="dc-lamp"' + (k2 === "run" ? ' data-on="1"' : "") + ' style="--c:' + color + '" d="' + circle(H.x0 + 3, z, 0.44, 12) + '"/>';
+      f += T(H.x0 + 4.4, z - 0.4, 1.05, label, ' fill="#2b3135"');
+    });
+    const kz = H.z0 + 15.5;
+    f += key(cx, kz + 3.2, 2.8, 2.4, "▲", 0.85) + key(cx, kz - 3.2, 2.8, 2.4, "▼", 0.85) + key(cx - 3.4, kz, 2.4, 2.8, "◀", 0.85) + key(cx + 3.4, kz, 2.4, 2.8, "▶", 0.85) + key(cx, kz, 2.6, 2.6, "OK", 0.8);
+    f += key(cx - 3.6, H.z0 + 6.4, 4.4, 2.4, "ESC") + key(cx + 3.6, H.z0 + 6.4, 4.4, 2.4, "RST");
+    f += fl([[H.x0 + 1.6, H.z0 + 1.2], [H.x1 - 1.6, H.z0 + 1.2], [H.x0 + 1.6, H.z1 - 1.2], [H.x1 - 1.6, H.z1 - 1.2]].map(([x, z]) => circle(x, z, 0.45, 10)).join(""), "lo");
+    g.push(onFace(RACK_F + 1, f));
+    out.push(part(`hmjk${i + 1}`, `<g data-hmjk="${i}">${g.join("")}</g>`));
+  });
   return out.join("");
 }
 
@@ -359,7 +343,7 @@ function hmiet(name, slot, { lit, role }) {
   const LEDS = [["Run", "#3fbf63", "run"], ["Fault", "#e0333c"], ["Remote", "#3fbf63"], ["Auto", "#3fbf63"], ["Parallel", "#3fbf63", "par"], ["U/I Block", "#e0333c"], ["Tap Block", "#e0333c"], ["AVR Failed", "#e0333c"], ["Regulating", "#e08a00", "reg"], ["Par.Block", "#e0333c"]];
   LEDS.forEach(([label, color, key], i) => {
     const z = Z(36 + i * 12.8);
-    const on = key === "run" || key === "par" || label === "Remote" || label === "Auto";
+    const on = key === "run" || key === "par" || label === "Remote";
     f += '<path fill="#3a4045" d="' + circle(X(36), z, 0.75, 12) + '"/>';
     f += '<path' + (key ? ' data-led="' + key + '"' : "") + ' class="dc-lamp"' + (on ? ' data-on="1"' : "") + ' style="--c:' + color + '" d="' + circle(X(36), z, 0.55, 12) + '"/>';
     f += T(X(42), z - 0.45, 1.25, label, ' fill="#2b3135"');
@@ -372,7 +356,7 @@ function hmiet(name, slot, { lit, role }) {
   f += T(L.x0 + 1, L.z1 - 2.2, 1.5, role, ' data-lcd2 fill="#7fe0ff"');
   f += T(lx, L.z0 + 5.2, 9, "09", ' data-avr-tap text-anchor="middle" fill="#eaf6ff" font-weight="700"');
   f += T(lx, L.z0 + 3, 1.3, "TAP", ' text-anchor="middle" fill="#7fe0ff"');
-  f += T(L.x0 + 1, L.z1 - 4.4, 1.6, "11.00 kV", ' data-lcd1 fill="#eaf6ff"');
+  f += T(L.x0 + 1, L.z1 - 4.4, 1.6, "MANUAL", ' data-lcd1 fill="#eaf6ff"');
   f += '<rect fill="#ffffff26" x="' + n(L.x0 + 1) + '" y="' + n(-(L.z0 + 1.6)) + '" width="' + n(L.x1 - L.x0 - 2) + '" height=".7" rx=".35"/>';
   f += '<rect data-bar data-bar-max="' + n(L.x1 - L.x0 - 2) + '" fill="#e08a00" x="' + n(L.x0 + 1) + '" y="' + n(-(L.z0 + 1.6)) + '" width="0" height=".7" rx=".35"/>';
   // navigation keypad: diamond of arrows round OK, with ESC and RST
@@ -416,13 +400,6 @@ function hmcPair() {
   return out.join("");
 }
 
-function brushPanel() {
-  const s = SLOTS.brush;
-  const mid = (s.z0 + s.z1) / 2;
-  const face = '<path class="dc-well" d="' + fr(-40, s.z0 + 2.4, 40, s.z1 - 2.4, 1.2) + '"/>' + fl(fr(-40, s.z0 + 2.4, 40, s.z1 - 2.4, 1.2), "lo") + fl("M-39 " + n(-mid) + "H39", "mid", ' data-free="both"');
-  return unit("brush", s, face, { handles: false });
-}
-
 function rails() {
   // vertical 19″ rails behind the panel ears, with one hole per U
   let out = "";
@@ -430,7 +407,7 @@ function rails() {
     out += S(k.slabOf({ x, y: FRONT - CAVITY.depth, w: 3.4, d: CAVITY.depth - 2.4, r: 0.3 }, CAVITY.z0, CAVITY.z1 - CAVITY.z0, P, 2), { tone: "lo", crease: "none" });
     const holes = [];
     // EIA-310 pattern: three square holes per U (44.45 mm = 8.89 units)
-    for (let u = 0; u < 20; u++) for (const o of [1.27, 4.445, 7.62]) holes.push(at([x + 1.7, FRONT - 2.4, CAVITY.z0 + 0.6 + u * 8.89 + o]));
+    for (let u = 0; u < 22; u++) for (const o of [1.27, 4.445, 7.62]) holes.push(at([x + 1.7, FRONT - 2.4, CAVITY.z0 + 0.6 + u * 8.89 + o]));
     out += D(holes, { size: 0.35, tone: "lo" });
   }
   return out;
@@ -439,12 +416,11 @@ function rails() {
 function rack() {
   const inside = [
     rails(),
-    source(),
     tapSim(),
-    hmiet("s3", SLOTS.s3, { lit: true, role: "T1 · MASTER · AUTO" }),
+    hmjkPair(),
+    hmiet("s3", SLOTS.s3, { lit: true, role: "T1 · MASTER · MANUAL" }),
     hmiet("s4", SLOTS.s4, { lit: false, role: "T2 · FOLLOWER" }),
     hmcPair(),
-    brushPanel(),
   ].join("");
   return recess(CAVITY, FRONT, inside);
 }
@@ -461,24 +437,10 @@ function worktop() {
 }
 
 function tray() {
+  // tray pushed in: front lip with a finger pull in the fascia slot
   const out = [];
-  // two-stage ball-bearing slides under each side
-  for (const x of [TRAY.x + 1.4, TRAY.x + TRAY.w - 3.6]) {
-    out.push(S(k.slabOf({ x, y: FRONT, w: 2.2, d: 24, r: 0.2 }, TRAY_Z - 2.4, 1.2, P, 2), { tone: "lo", crease: "none" }));
-    out.push(S(k.slabOf({ x: x + 0.3, y: FRONT, w: 1.6, d: TRAY.d - 3, r: 0.2 }, TRAY_Z - 1.2, 1.2, P, 2), { tone: "mid", crease: "none" }));
-    out.push(D([at([x + 2.2, FRONT + 6, TRAY_Z - 1.8]), at([x + 2.2, FRONT + 18, TRAY_Z - 1.8])], { size: 0.32 }));
-  }
-  out.push(S(k.slabOf(TRAY, TRAY_Z, 2, P, 3, 0.5), { tone: "mid" }));
-  out.push(S(k.slabOf({ x: TRAY.x, y: FRONT + TRAY.d - 2, w: TRAY.w, d: 2, r: 0.6 }, TRAY_Z + 2, 1.2, P, 2, 0.3), { tone: "mid" }));
-  out.push(S(k.slabOf({ x: -10, y: FRONT + TRAY.d - 1.4, w: 20, d: 1.8, r: 0.8 }, TRAY_Z + 0.4, 2.2, P, 3, 0.3), { tone: "mid" }));
-  const KB = { x: -34, y: FRONT + 7, w: 62, d: 22, r: 1.2 };
-  out.push(S(k.slabOf(KB, TRAY_Z + 2, 1.6, P, 3, 0.4), { tone: "mid" }));
-  const keys = [];
-  for (let r = 0; r < 5; r++) for (let c = 0; c < 14; c++) keys.push(k.planOutline({ x: KB.x + 2 + c * 4.2, y: KB.y + 2 + r * 3.8, w: 3.4, d: 3, r: 0.5 }, TRAY_Z + 3.6, P, 2));
-  out.push(L(keys.join(""), { tone: "lo" }));
-  const MOUSE = { x: 32, y: FRONT + 14, w: 6, d: 9, r: 2.8 };
-  out.push(S(k.slabOf(MOUSE, TRAY_Z + 2, 2, P, 6, 0.4), { tone: "mid" }));
-  out.push(L(k.lineOnTop([35, FRONT + 14], [35, FRONT + 17.6], TRAY_Z + 4, P), { tone: "faint" }));
+  out.push(S(k.slabOf({ x: TRAY.x, y: FRONT, w: TRAY.w, d: 1.6, r: 0.4 }, TRAY_Z - 1, 4.6, P, 2, 0.3), { tone: "mid" }));
+  out.push(S(k.slabOf({ x: -10, y: FRONT + 1.6, w: 20, d: 1.2, r: 0.6 }, TRAY_Z + 0.4, 1.8, P, 3, 0.3), { tone: "mid" }));
   return part("tray", out.join(""));
 }
 
@@ -512,28 +474,28 @@ function monitor() {
   return part("screen", out.join(""));
 }
 
-// HMI in the screen plane: header, two transformer tiles, a voltage trend.
-export const CHART = { x0: -12, x1: 41, z0: 286, z1: 324, lo: 10.6, hi: 11.4 };
+// HMI in the screen plane: header, two transformer tiles, a tap trend (T1 solid, T2 dashed).
+export const CHART = { x0: -12, x1: 41, z0: 286, z1: 324, lo: 1, hi: 17 };
 function screen(SC) {
-  const { x0, x1, z0, z1 } = SC;
+  const { x0, x1, z1 } = SC;
   let s = "";
   s += `<rect class="dc-hmi-bar" x="${x0}" y="${-z1}" width="${x1 - x0}" height="4.4"/>`;
-  s += `<text class="dc-hmi-h" x="${x0 + 2}" y="${n(-z1 + 3.2)}">VOLTAGE CONTROL · T1 ∥ T2</text>`;
+  s += `<text class="dc-hmi-h" x="${x0 + 2}" y="${n(-z1 + 3.2)}">TAP CONTROL · T1 ∥ T2</text>`;
   s += `<text data-clock class="dc-hmi-h" x="${x1 - 2}" y="${n(-z1 + 3.2)}" text-anchor="end">LIVE</text>`;
   [["T1", "MASTER", 310], ["T2", "FOLLOWER", 289]].forEach(([t, role, z], i) => {
     s += `<rect class="dc-hmi-tile" x="${x0 + 2}" y="${-(z + 14)}" width="26" height="15" rx="1"/>`;
     s += `<text class="dc-hmi-s" x="${x0 + 4}" y="${-(z + 10.4)}">${t} · ${role}</text>`;
     s += `<text data-hmi-tap="${i}" class="dc-hmi-big" x="${x0 + 4}" y="${-(z + 2)}">09</text>`;
-    s += `<text data-hmi-kv="${i}" class="dc-hmi-s" x="${x0 + 26}" y="${-(z + 2.4)}" text-anchor="end">11.00 kV</text>`;
+    s += `<text data-hmi-ops="${i}" class="dc-hmi-s" x="${x0 + 26}" y="${-(z + 2.4)}" text-anchor="end">OPS 01247</text>`;
   });
   const { x0: cx0, x1: cx1, z0: cz0, z1: cz1, lo, hi } = CHART;
   const zOf = (v) => cz0 + ((v - lo) / (hi - lo)) * (cz1 - cz0);
-  s += `<rect class="dc-hmi-band" x="${cx0}" y="${n(-zOf(11.11))}" width="${cx1 - cx0}" height="${n(zOf(11.11) - zOf(10.89))}"/>`;
   s += `<path class="dc-hmi-grid" d="M${cx0} ${-cz0}H${cx1}M${cx0} ${-cz1}H${cx1}M${cx0} ${-cz0}V${-cz1}M${cx1} ${-cz0}V${-cz1}"/>`;
-  s += `<path class="dc-hmi-set" d="M${cx0} ${n(-zOf(11))}H${cx1}"/>`;
-  s += `<text class="dc-hmi-s" x="${cx0 + 1}" y="${n(-zOf(11.11) - 0.8)}">+1 %</text><text class="dc-hmi-s" x="${cx0 + 1}" y="${n(-zOf(10.89) + 2.6)}">−1 %</text>`;
+  s += `<path class="dc-hmi-set" d="M${cx0} ${n(-zOf(9))}H${cx1}"/>`;
+  s += `<text class="dc-hmi-s" x="${cx0 + 1}" y="${n(-cz1 + 2.6)}">17</text><text class="dc-hmi-s" x="${cx0 + 1}" y="${n(-zOf(9) - 0.8)}">09</text><text class="dc-hmi-s" x="${cx0 + 1}" y="${n(-cz0 - 0.8)}">01</text>`;
+  s += `<polyline data-trend2 class="dc-hmi-trend2" points=""/>`;
   s += `<polyline data-trend class="dc-hmi-trend" points=""/>`;
-  s += `<text data-hmi-grid class="dc-hmi-s" x="${cx1}" y="${n(-cz0 + 3.2)}" text-anchor="end">GRID 100.0 %</text>`;
+  s += `<text data-hmi-motor class="dc-hmi-s" x="${cx1}" y="${n(-cz0 + 3.2)}" text-anchor="end">MOTOR 0.00 A</text>`;
   return s;
 }
 
@@ -582,7 +544,7 @@ export function figure() {
     width: WIDTH,
     height: HEIGHT,
     label:
-      "An isometric drawing of a mobile AVR demo cabinet, 600 mm wide, 500 mm deep and 1700 mm tall on lockable castors. A monitor sits in an open frame at the top above a pull-out keyboard tray. The rack below holds a grid source with a knob, a tap-changer simulator with a position dial, a master and a follower AVR, a spare slot and two tap displays. A cable locker is at the bottom and a 13 A power strip and cable duct run on the side.",
+      "An isometric drawing of a mobile AVR demo cabinet, 600 mm wide, 500 mm deep and 1700 mm tall on lockable castors. A monitor sits in an open frame at the top above a pull-out keyboard tray. The 22U rack below holds a tap-changer simulator with a position dial, two HMJK-II OLTC monitors, a master and a follower AVR and two tap displays. A cable locker is at the bottom and a 13 A power strip and cable duct run on the side.",
     body: figureBody(),
   });
 }

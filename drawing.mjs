@@ -1,439 +1,514 @@
-// General-arrangement drawing of the mobile AVR demo cabinet.
-// Front elevation (left) and right side elevation (right), one shared floor line,
-// both at the same scale. Plain string building, no dependencies.
-// All model values are mm; heights are above the floor.
+// A4 drawing sheets for the AVR demo cabinet, rev B.
+// Each sheet is an SVG in millimetres (297 × 210, landscape), so it prints 1:1 on A4.
+// Sheet 1: general arrangement (front and right side, 1:12).
+// Sheet 2: rack front (1:8) with the slot list.
+// Sheet 3: system layout (1:20) with the SHM-D motor drives, junction boxes, BCD box and cables,
+//          and the HMJK-II, junction box and BCD box details.
+// Model values are mm; heights are above the floor; x is from the cabinet centre.
 
-const W = 1240;          // viewBox width
-const H = 1000;          // viewBox height
-const S = 0.45;          // px per mm, both views
-const FLOOR = 880;       // floor line y
-const CX = 330;          // front view: x = 0 (cabinet centre)
-const SX0 = 800;         // side view: z = 0 (cabinet front face), back is +z
+export const SHEET_W = 297;
+export const SHEET_H = 210;
+export const REV = "B";
+export const DATE = "11 NOV 2026";
 
-const n = (v) => Math.round(v * 100) / 100;
-const fx = (x) => CX + x * S;
-const fy = (h) => FLOOR - h * S;
-const sx = (z) => SX0 + z * S;
+const n = (v) => Math.round(v * 1000) / 1000;
 const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+// A view maps model mm (x from the centre, h above the floor) to sheet mm.
+const view = (ox, oy, s) => ({ s, X: (x) => ox + x * s, Y: (h) => oy - h * s });
 
 function rect(x1, y1, x2, y2, cls, extra = "") {
   const x = Math.min(x1, x2), y = Math.min(y1, y2);
   return `<rect class="${cls}" x="${n(x)}" y="${n(y)}" width="${n(Math.abs(x2 - x1))}" height="${n(Math.abs(y2 - y1))}"${extra}/>`;
 }
-const FR = (x1, h1, x2, h2, cls, extra) => rect(fx(x1), fy(h1), fx(x2), fy(h2), cls, extra);
-const SR = (z1, h1, z2, h2, cls, extra) => rect(sx(z1), fy(h1), sx(z2), fy(h2), cls, extra);
-const line = (x1, y1, x2, y2, cls) =>
-  `<line class="${cls}" x1="${n(x1)}" y1="${n(y1)}" x2="${n(x2)}" y2="${n(y2)}"/>`;
+const R = (v, x1, h1, x2, h2, cls, r = 0) => rect(v.X(x1), v.Y(h1), v.X(x2), v.Y(h2), cls, r ? ` rx="${n(r * v.s)}"` : "");
+const line = (x1, y1, x2, y2, cls) => `<line class="${cls}" x1="${n(x1)}" y1="${n(y1)}" x2="${n(x2)}" y2="${n(y2)}"/>`;
 const circle = (x, y, r, cls) => `<circle class="${cls}" cx="${n(x)}" cy="${n(y)}" r="${n(r)}"/>`;
 const text = (x, y, s, cls, anchor = "start", extra = "") =>
   `<text class="${cls}" x="${n(x)}" y="${n(y)}" text-anchor="${anchor}"${extra}>${esc(s)}</text>`;
+// a run of printed text on a device front, drawn as a dashed bar
+const print = (v, x1, x2, h) => `<line class="pr" x1="${n(v.X(x1))}" y1="${n(v.Y(h))}" x2="${n(v.X(x2))}" y2="${n(v.Y(h))}" style="stroke-width:${n(Math.max(0.12, 3 * v.s))}"/>`;
 
-// ---------- dimensions ----------
+// ---------- rack (rev B) ----------
+export const U0 = 270.5;
+export const U = 44.45;
+const uBottom = (u) => U0 + (u - 1) * U;
+const uTop = (u) => U0 + u * U;
+export const RACK_TOP = 1250;
+export const RACK_U = 22;
+export const SLOTS = [
+  { id: "S1", u: [1, 3], name: "Tap-changer simulator", depth: 300, kind: "sim" },
+  { id: "S2", u: [4, 11], name: "HMJK-II OLTC monitor × 2, T1 and T2", depth: 200, kind: "hmjk" },
+  { id: "S3", u: [12, 15], name: "HMIET-I AVR, T1 master", depth: 267, kind: "avr" },
+  { id: "S4", u: [16, 19], name: "HMIET-I AVR, T2 follower", depth: 267, kind: "avr" },
+  { id: "S5, S6", u: [20, 22], name: "HMC-3C tap indicator × 2", depth: 110, kind: "hmc" },
+].map((s) => ({ ...s, a: uBottom(s.u[0]), b: uTop(s.u[1]), hc: (uBottom(s.u[0]) + uTop(s.u[1])) / 2, size: `${s.u[1] - s.u[0] + 1}U` }));
+const slot = (kind, i = 0) => SLOTS.filter((s) => s.kind === kind)[i];
+export const RACK_ROWS = [...SLOTS].reverse().map((s) => ({
+  slot: s.id,
+  u: `U${s.u[0]}–${s.u[1]}`,
+  size: s.size,
+  mm: `${Math.round(s.a + 1)}–${Math.round(s.b - 1)}`,
+  name: s.name,
+  key: s.kind === "avr" || s.kind === "hmjk",
+}));
+
+// ---------- dimensions and callouts (sheet mm) ----------
 function arrow(x, y, dir) {
-  const L = 6, B = 2;
-  const p = {
-    u: [[x, y], [x - B, y + L], [x + B, y + L]],
-    d: [[x, y], [x - B, y - L], [x + B, y - L]],
-    l: [[x, y], [x + L, y - B], [x + L, y + B]],
-    r: [[x, y], [x - L, y - B], [x - L, y + B]],
-  }[dir];
-  return `<path class="ga-arw" d="M${p.map((q) => `${n(q[0])} ${n(q[1])}`).join(" L")} Z"/>`;
+  const L = 1.5, B = 0.42;
+  const p = { u: [[x, y], [x - B, y + L], [x + B, y + L]], d: [[x, y], [x - B, y - L], [x + B, y - L]], l: [[x, y], [x + L, y - B], [x + L, y + B]], r: [[x, y], [x - L, y - B], [x - L, y + B]] }[dir];
+  return `<path class="ar" d="M${p.map((q) => `${n(q[0])} ${n(q[1])}`).join(" L")} Z"/>`;
 }
-
-// Vertical dimension at x between svg y values ya (lower) and yb (upper).
-// extA / extB: x of the object point for extension lines (null = none).
-function dimV(x, ya, yb, label, { extA = null, extB = null, side = "left" } = {}) {
+function dimV(x, ya, yb, label, { extA = null, extB = null } = {}) {
   let o = "";
   for (const [ex, y] of [[extA, ya], [extB, yb]]) {
     if (ex == null) continue;
     const d = Math.sign(x - ex);
-    o += line(ex + 2 * d, y, x + 3 * d, y, "ga-dim");
+    o += line(ex + 0.6 * d, y, x + 1 * d, y, "dm");
   }
-  o += line(x, ya, x, yb, "ga-dim") + arrow(x, ya, "d") + arrow(x, yb, "u");
-  const tx = side === "left" ? x - 4 : x + 11;
+  o += line(x, ya, x, yb, "dm") + arrow(x, ya, "d") + arrow(x, yb, "u");
   const ty = (ya + yb) / 2;
-  o += text(tx, ty, label, "ga-dt", "middle", ` transform="rotate(-90 ${n(tx)} ${n(ty)})"`);
+  o += text(x - 0.7, ty, label, "dt", "middle", ` transform="rotate(-90 ${n(x - 0.7)} ${n(ty)})"`);
   return o;
 }
-
-// Horizontal dimension at y between svg x values xa (left) and xb (right).
 function dimH(y, xa, xb, label, { extA = null, extB = null } = {}) {
   let o = "";
   for (const [ey, x] of [[extA, xa], [extB, xb]]) {
     if (ey == null) continue;
     const d = Math.sign(y - ey);
-    o += line(x, ey + 2 * d, x, y + 3 * d, "ga-dim");
+    o += line(x, ey + 0.6 * d, x, y + 1 * d, "dm");
   }
-  o += line(xa, y, xb, y, "ga-dim") + arrow(xa, y, "l") + arrow(xb, y, "r");
-  o += text((xa + xb) / 2, y - 4, label, "ga-dt", "middle");
+  o += line(xa, y, xb, y, "dm") + arrow(xa, y, "l") + arrow(xb, y, "r");
+  o += text((xa + xb) / 2, y - 0.7, label, "dt", "middle");
   return o;
 }
-
-// Leader: dot on the part, line to an elbow column, short shoulder, label.
-// label may be a string or an array of lines (first line sits on the shoulder).
-function leader(px, py, kx, ty, label, cls = "ga-lb") {
-  const lines = Array.isArray(label) ? label : [label];
+const LH = 2.5; // callout line height
+function leader(px, py, kx, ty, lines, accent) {
   return (
-    circle(px, py, 1.3, "ga-ldot") +
-    `<path class="ga-ld" d="M${n(px)} ${n(py)} L${n(kx)} ${n(ty)} L${n(kx + 5)} ${n(ty)}"/>` +
-    lines.map((t, i) => text(kx + 8, ty + i * 12, t, i ? `${cls} ga-lb2` : cls, "start", ` dy="0.35em"`)).join("")
+    circle(px, py, 0.32, "ld-dot") +
+    `<path class="ld" d="M${n(px)} ${n(py)} L${n(kx)} ${n(ty)} L${n(kx + 1.6)} ${n(ty)}"/>` +
+    lines.map((t, i) => text(kx + 2.4, ty + i * LH, t, i ? "lb lb2" : accent ? "lb lb-k" : "lb", "start", ` dy="0.35em"`)).join("")
   );
 }
+// Stack callouts in a column so they never overlap: each wants to sit level with its point.
+function callouts(items, kx, top, bottom) {
+  const list = items.map((it) => ({ ...it, h: it.lines.length * LH })).sort((a, b) => a.want - b.want);
+  let y = top;
+  for (const it of list) { it.ty = Math.max(it.want, y); y = it.ty + it.h + 0.6; }
+  let over = y - 0.6 - bottom;
+  for (let i = list.length - 1; i >= 0 && over > 0; i--) {
+    const it = list[i];
+    const room = i ? it.ty - (list[i - 1].ty + list[i - 1].h + 0.6) : it.ty - top;
+    it.ty -= over;
+    over = Math.max(0, over - room);
+    for (let j = i + 1; j < list.length; j++) list[j].ty = Math.max(list[j].ty, list[j - 1].ty + list[j - 1].h + 0.6);
+  }
+  return list.map((it) => leader(it.px, it.py, kx, it.ty, it.lines, it.accent)).join("");
+}
 
-// ---------- device fronts (front elevation, mm, x from cabinet centre) ----------
-// HMIET-I AVR, native 19″ 4U front 482.8 × 177 (drawing HMIET-I-E110), centred on (0, hc).
-// Positions below are "from left" (x) and "from top" (t) of the panel, as on the drawing.
+// ---------- device fronts (front elevation) ----------
 const AVR_W = 482.8, AVR_H = 177, AVR_D = 267;
-function hmiet(hc) {
-  const L = -AVR_W / 2, R = AVR_W / 2, B = hc - AVR_H / 2, T = hc + AVR_H / 2;
-  const P = (x1, t1, x2, t2, cls, extra) => FR(L + x1, T - t2, L + x2, T - t1, cls, extra);
-  let o = FR(L, B, R, T, "ga-acc", ` rx="1"`);
-  // ear slots: centres 465 apart, 101.6 apart on each ear, 6.5 wide
-  for (const x of [-232.5, 232.5]) for (const dh of [-50.8, 50.8]) o += FR(x - 5, hc + dh - 3.25, x + 5, hc + dh + 3.25, "ga-d", ` rx="3.25"`);
-  // status LED column at 36 from the left (Run … Par.Block), labels to the right
+function hmiet(v, hc) {
+  const L = -AVR_W / 2, T = hc + AVR_H / 2;
+  const P = (x1, t1, x2, t2, cls, r) => R(v, L + x1, T - t2, L + x2, T - t1, cls, r);
+  let o = R(v, L, hc - AVR_H / 2, -L, T, "ok", 1);
+  for (const x of [-232.5, 232.5]) for (const dh of [-50.8, 50.8]) o += R(v, x - 5, hc + dh - 3.25, x + 5, hc + dh + 3.25, "d", 3.25);
   for (let i = 0; i < 10; i++) {
     const t = 26 + i * 14;
-    o += circle(fx(L + 36), fy(T - t), 2.5 * S + 0.3, "ga-d");
-    o += line(fx(L + 44), fy(T - t), fx(L + 78), fy(T - t), "ga-tx");
+    o += circle(v.X(L + 36), v.Y(T - t), Math.max(0.16, 2.5 * v.s), "d");
+    o += print(v, L + 44, L + 78, T - t);
   }
-  o += P(115, 10, 197, 91, "ga-d", ` rx="1"`);                           // LCD 82 × 80
-  o += P(121, 16, 191, 85, "ga-d");                                      // display area
-  // keypad 295–367 × 36–79: diamond of arrow keys round OK, ESC / RST beside
+  o += P(115, 10, 197, 91, "d", 1) + P(121, 16, 191, 85, "g");
   const kx = 317, kt = 57.5, k = 5;
-  for (const [dx, dt] of [[0, -15], [0, 15], [-15, 0], [15, 0]]) o += P(kx + dx - k, kt + dt - k, kx + dx + k, kt + dt + k, "ga-d", ` rx="1"`);
-  o += circle(fx(L + kx), fy(T - kt), 5 * S, "ga-d");
-  o += P(352, 38, 367, 50, "ga-d", ` rx="1"`) + P(352, 65, 367, 77, "ga-d", ` rx="1"`); // ESC, RST
-  o += line(fx(L + 300), fy(T - 12), fx(L + 466), fy(T - 12), "ga-tx");     // "HMIET-Ⅰ AUTOMATIC VOLTAGE REGULATOR"
+  for (const [dx, dt] of [[0, -15], [0, 15], [-15, 0], [15, 0]]) o += P(kx + dx - k, kt + dt - k, kx + dx + k, kt + dt + k, "d", 1);
+  o += circle(v.X(L + kx), v.Y(T - kt), 5 * v.s, "d");
+  o += P(352, 38, 367, 50, "d", 1) + P(352, 65, 367, 77, "d", 1);
+  o += print(v, L + 300, L + 466, T - 12);
   return o;
 }
-
-// HMC-3C tap position indicator, DIN 192 × 96, centred on (cx, hc).
-function hmc3c(cx, hc) {
-  const L = cx - 96, R = cx + 96, B = hc - 48, T = hc + 48;
-  let o = FR(L, B, R, T, "ga-o", ` rx="1.5"`);
-  o += FR(L + 118, T - 40, L + 160, T - 17, "ga-d");                    // 2-digit LED window
-  o += FR(L + 123, T - 37, L + 137, T - 20, "ga-d") + FR(L + 141, T - 37, L + 155, T - 20, "ga-d");
-  for (const k of [30, 62, 94, 126, 164]) o += FR(L + k - 6.5, T - 72.5, L + k + 6.5, T - 59.5, "ga-d", ` rx="1"`); // TELECONTROL, 1-N, STOP, N-1, POWER
+function hmc3c(v, cx, hc) {
+  const L = cx - 96, T = hc + 48;
+  let o = R(v, L, hc - 48, cx + 96, T, "o", 1.5);
+  o += R(v, L + 118, T - 40, L + 160, T - 17, "g") + R(v, L + 123, T - 37, L + 137, T - 20, "d") + R(v, L + 141, T - 37, L + 155, T - 20, "d");
+  o += print(v, L + 10, L + 100, T - 14) + print(v, L + 10, L + 80, T - 24);
+  for (const k of [30, 62, 94, 126, 164]) o += R(v, L + k - 6.5, T - 72.5, L + k + 6.5, T - 59.5, "d", 1);
   return o;
 }
-
-// ---------- front elevation ----------
-function frontView() {
-  let o = "";
-
-  // castors (front and rear coincide in this view)
-  for (const c of [-250, 250]) {
-    o += FR(c - 30, 92, c + 30, 100, "ga-o");                // top plate
-    o += FR(c - 12, 0, c + 12, 76, "ga-o", ` rx="5"`);         // wheel, edge on
-    o += FR(c - 16, 38, c - 12, 92, "ga-d");                  // fork cheeks
-    o += FR(c + 12, 38, c + 16, 92, "ga-d");
-    o += FR(c - 16, 84, c + 16, 92, "ga-d");                  // yoke
-    o += FR(c - 19, 34, c - 16, 42, "ga-d") + FR(c + 16, 34, c + 19, 42, "ga-d"); // axle nuts
-    o += FR(c + 16, 58, c + 34, 68, "ga-d", ` rx="1.5"`);      // brake pedal (front castor)
+// HMJK-II module, upright: front 130 × 340.4 (body 322.3), 200 deep.
+export const HMJK = { w: 130, h: 340.4, body: 322.3, d: 200, x: 75 };
+function hmjk(v, cx, hc) {
+  const L = cx - HMJK.w / 2, Rr = cx + HMJK.w / 2, T = hc + HMJK.h / 2, B = hc - HMJK.h / 2;
+  let o = R(v, L, B, Rr, T, "ok", 2);
+  o += R(v, L + 6, B + 9, Rr - 6, T - 9, "d", 1);                       // body edge (322.3)
+  for (const h of [T - 4.5, B + 4.5]) for (const x of [L + 10, Rr - 10]) o += circle(v.X(x), v.Y(h), Math.max(0.15, 2 * v.s), "d");
+  o += print(v, L + 14, L + 70, T - 22);                                // HMJK-Ⅱ legend
+  o += R(v, cx - 28.5, T - 82, cx + 28.5, T - 34, "d", 1) + R(v, cx - 25, T - 78, cx + 25, T - 38, "g"); // LCD 57 wide
+  for (let i = 0; i < 7; i++) {
+    const h = T - 100 - i * 13;
+    o += circle(v.X(L + 20), v.Y(h), Math.max(0.15, 2.4 * v.s), "d");
+    o += print(v, L + 28, L + 70, h);
   }
-
-  // lower cabinet
-  o += FR(-300, 100, 300, 1340, "ga-o");
-  o += line(fx(-300), fy(118), fx(300), fy(118), "ga-d");    // kick plate top
-  o += line(fx(-275), fy(118), fx(-275), fy(1340), "ga-d");  // corner uprights
-  o += line(fx(275), fy(118), fx(275), fy(1340), "ga-d");
-
-  // cable locker drawer
-  o += FR(-270, 120, 270, 255, "ga-o");
-  o += FR(-80, 181, 80, 193, "ga-d", ` rx="3"`);
-  o += circle(fx(220), fy(187), 7 * S + 1, "ga-d");
-  o += line(fx(220), fy(191), fx(220), fy(183), "ga-d");
-
-  // rack opening, rails
-  o += FR(-250, 270, 250, 1160, "ga-o");
-  o += line(fx(-241.3), fy(270), fx(-241.3), fy(1160), "ga-d");
-  o += line(fx(241.3), fy(270), fx(241.3), fy(1160), "ga-d");
-
-  // rack slots (SPEC rack layout); plates are full 19″ fronts, 482.6 wide
+  const kh = B + 95, k = 9;
+  for (const [dx, dh] of [[0, 16], [0, -16], [-16, 0], [16, 0]]) o += R(v, cx + dx - k / 2 - 2, kh + dh - k / 2, cx + dx + k / 2 + 2, kh + dh + k / 2, "d", 1);
+  o += circle(v.X(cx), v.Y(kh), 5 * v.s, "d");
+  o += R(v, cx - 26, B + 40, cx - 6, B + 52, "d", 1) + R(v, cx + 6, B + 40, cx + 26, B + 52, "d", 1); // ESC, RST
+  return o;
+}
+function plateScrews(v, a, b) {
   const PX = 241.3;
-  const slots = [
-    { a: 272, b: 447, t: ["S1 · Grid source", "U1–4 · 4U"] },
-    { a: 450, b: 625, t: ["S2 · Tap-changer simulator", "U5–8 · 4U"] },
-    { a: 628, b: 803, dev: "avr" },                                  // S3 HMIET-I · T1 master
-    { a: 806, b: 981, dev: "avr" },                                  // S4 HMIET-I · T2 follower
-    { a: 984, b: 1115, dev: "hmc" },                                 // S5 + S6 HMC-3C × 2
-    { a: 1117, b: 1159, dev: "brush" },                              // U20 cable entry
-  ];
-  for (const s of slots) {
-    const hc = (s.a + s.b) / 2;
-    if (s.dev === "avr") { o += hmiet(hc); continue; }               // native 4U unit, own ears
-    o += FR(-PX, s.a, PX, s.b, "ga-o", ` rx="1"`);
-    // mounting screws
-    const hs = s.b - s.a > 60 ? [s.a + 12, s.b - 12] : [(s.a + s.b) / 2];
-    for (const x of [-PX + 9, PX - 9]) for (const h of hs) o += circle(fx(x), fy(h), 1.3, "ga-scr");
-    if (s.t) {
-      const mx = fx(0), my = fy(hc);
-      o += text(mx, my - 7, s.t[0], "ga-sl", "middle", ` dy="0.35em"`);
-      o += text(mx, my + 7, s.t[1], "ga-sl ga-sl-dim", "middle", ` dy="0.35em"`);
+  const hs = b - a > 60 ? [a + 12, b - 12] : [(a + b) / 2];
+  let o = "";
+  for (const x of [-PX + 9, PX - 9]) for (const h of hs) o += circle(v.X(x), v.Y(h), Math.max(0.2, 3 * v.s), "d");
+  return o;
+}
+function simulator(v, s) {
+  const a = s.a + 1, b = s.b - 1, hc = (a + b) / 2;
+  let o = R(v, -241.3, a, 241.3, b, "o", 1) + plateScrews(v, a, b);
+  const dx = -150;
+  o += circle(v.X(dx), v.Y(hc), 55 * v.s, "d") + circle(v.X(dx), v.Y(hc), 44 * v.s, "d");
+  for (let t = 1; t <= 17; t++) {
+    const ang = ((-135 + ((t - 1) * 270) / 16) * Math.PI) / 180;
+    const r1 = 44, r2 = t % 4 === 1 ? 52 : 48;
+    o += line(v.X(dx + r1 * Math.sin(ang)), v.Y(hc + r1 * Math.cos(ang)), v.X(dx + r2 * Math.sin(ang)), v.Y(hc + r2 * Math.cos(ang)), "d");
+  }
+  o += line(v.X(dx), v.Y(hc), v.X(dx), v.Y(hc + 38), "o");
+  o += R(v, -60, hc + 18, 40, hc + 48, "d", 2) + R(v, -55, hc + 22, 35, hc + 44, "g");   // operations counter
+  o += R(v, -60, hc - 40, -40, hc - 20, "d", 2) + R(v, -30, hc - 40, -10, hc - 20, "d", 2); // RAISE, LOWER lamps
+  o += circle(v.X(110), v.Y(hc), 32 * v.s, "d") + circle(v.X(110), v.Y(hc), 6 * v.s, "d"); // motor window
+  o += circle(v.X(40), v.Y(hc - 30), 12 * v.s, "d");                                       // crank socket
+  for (let i = 0; i < 6; i++) o += R(v, 170 + i * 10, hc - 35, 175 + i * 10, hc + 35, "d", 2.5);
+  return o;
+}
+function rackUnits(v) {
+  let o = "";
+  for (const s of SLOTS) {
+    if (s.kind === "sim") o += simulator(v, s);
+    if (s.kind === "avr") o += hmiet(v, s.hc);
+    if (s.kind === "hmjk") {
+      o += R(v, -241.3, s.a + 1, 241.3, s.b - 1, "o", 1) + plateScrews(v, s.a + 1, s.b - 1);
+      o += hmjk(v, -HMJK.x, s.hc) + hmjk(v, HMJK.x, s.hc);
     }
-    if (s.dev === "hmc") o += hmc3c(-125, hc) + hmc3c(125, hc);
-    if (s.dev === "brush") {
-      o += FR(-185, hc - 7, 185, hc + 7, "ga-d", ` rx="3"`);         // brush slot
-      o += line(fx(-180), fy(hc), fx(180), fy(hc), "ga-d");         // brush meeting line
-    }
+    if (s.kind === "hmc") o += R(v, -241.3, s.a + 1, 241.3, s.b - 1, "o", 1) + plateScrews(v, s.a + 1, s.b - 1) + hmc3c(v, -125, s.hc) + hmc3c(v, 125, s.hc);
   }
-  // small device dimensions in free space on the fronts:
-  // AVR height in S3 (between LCD and keypad), AVR width along the foot of S4, HMC-3C height in the gap
-  o += dimV(fx(-AVR_W / 2 + 248), fy(715.5 - AVR_H / 2), fy(715.5 + AVR_H / 2), "177");
-  o += dimH(fy(893.5 + AVR_H / 2 - 166), fx(-AVR_W / 2), fx(AVR_W / 2), "482.8");
-  o += dimV(fx(0), fy(1049.5 - 48), fy(1049.5 + 48), "96", { extA: fx(29), extB: fx(29) });
-
-  // U ladder, left of the cabinet
-  const LX = 186, U0 = 270.5, U = 44.45;
-  o += line(LX, fy(U0), LX, fy(U0 + 20 * U), "ga-d");
-  for (let i = 0; i <= 20; i++) {
-    const y = fy(U0 + i * U);
-    o += line(LX - (i % 5 === 0 ? 7 : 4), y, LX, y, "ga-d");
-  }
-  for (let i = 1; i <= 20; i++) {
-    o += text(LX - 9, fy(U0 + (i - 0.5) * U), `U${i}`, "ga-ul", "end", ` dy="0.35em"`);
-  }
-
-  // fascia: vent slots and keyboard tray
-  for (let i = 0; i < 22; i++) {
-    const c = -210 + i * 20;
-    o += FR(c - 5, 1190, c + 5, 1205, "ga-d", ` rx="1.5"`);
-  }
-  o += FR(-230, 1275, 230, 1310, "ga-d");                    // tray slot
-  o += FR(-220, 1275, 220, 1295, "ga-o", ` rx="1"`);           // tray front (extended)
-  o += FR(-40, 1281, 40, 1288, "ga-d", ` rx="3"`);             // finger pull
-
-  // worktop
-  o += FR(-307.5, 1340, 307.5, 1355, "ga-o");
-
-  // upper open frame
-  o += FR(-300, 1355, -285, 1780, "ga-o");
-  o += FR(285, 1355, 300, 1780, "ga-o");
-  o += FR(-300, 1780, 300, 1800, "ga-o");
-  // perforated back panel: dots only where not hidden by monitor and stand
-  let dots = "";
-  for (let x = -272.5; x <= 272.5; x += 25) {
-    for (let h = 1367.5; h <= 1770; h += 25) {
-      if (Math.abs(x) < 240 && h > 1382 && h < 1678) continue;
-      if (Math.abs(x) < 80 && h < 1392) continue;
-      dots += `<circle cx="${n(fx(x))}" cy="${n(fy(h))}" r="0.9"/>`;
-    }
-  }
-  o += `<g class="ga-dot">${dots}</g>`;
-
-  // monitor and stand
-  o += FR(-70, 1355, 70, 1365, "ga-o", ` rx="2"`);
-  o += FR(-13, 1365, 13, 1390, "ga-d");
-  o += FR(-230, 1390, 230, 1670, "ga-o", ` rx="3"`);
-  o += FR(-218, 1408, 218, 1658, "ga-d", ` rx="1"`);
-
-  // right side items seen end-on (they stand proud of the right side panel)
-  o += FR(300, 130, 318, 1180, "ga-d");                      // cable duct
-  o += FR(300, 1198, 323, 1222, "ga-d", ` rx="2"`);           // push handle
-
-  // callouts, right of the view
-  const KX = 492;
-  const C = [
-    [260, 1790, 1790, "top frame 1780–1800"],
-    [292, 1745, 1745, "posts 15×15"],
-    [272.5, 1717.5, 1700, "perforated back panel"],
-    [230, 1600, 1600, "monitor ≈22″ 460×280"],
-    [70, 1360, 1378, "monitor stand"],
-    [307.5, 1347, 1328, "worktop 15 thk"],
-    [220, 1285, 1287, "keyboard tray 440 W"],
-    [323, 1215, 1245, "push handle (R side)"],
-    [215, 1197, 1197, "vent slots"],
-    [318, 520, 520, "cable duct (R side)"],
-    [227, 187, 215, "locker drawer + lock"],
-    [288, 109, 142, "kick plate"],
-    [284, 63, 50, "3″ castor, lockable"],
-  ];
-  for (const [x, h, lh, t] of C) o += leader(fx(x), fy(h), KX, fy(lh), t);
-
-  // rack device labels, same column (units sit in S3–S6)
-  const D = [
-    [200, 1138, 1146, ["U20 · cable entry · 1U", "brush strip"]],
-    [229, 1049.5, 1064, ["S5 · S6 · HMC-3C ×2 · 3U", "T1 · T2 tap indicators", "each 192 × 96"]],
-    [200, 893.5, 893.5, ["S4 · HMIET-I AVR · 4U", "T2 follower"], "ga-lb ga-lb-acc"],
-    [200, 715.5, 728, ["S3 · HMIET-I AVR · 4U", "T1 master", "native 19″, 482.8 × 177"], "ga-lb ga-lb-acc"],
-  ];
-  for (const [x, h, lh, t, cls] of D) o += leader(fx(x), fy(h), KX, fy(lh), t, cls);
-
-  // dimensions, left of the view
-  o += dimV(40, fy(0), fy(1800), "1800", { extB: fx(-300) });
-  o += dimV(70, fy(0), fy(1340), "1340 worktop", { extB: fx(-307.5) });
-  o += dimV(100, fy(0), fy(100), "100", { extB: fx(-300) });
-  o += dimV(100, fy(270), fy(1160), "rack 270–1160 · 20U", { extA: fx(-250), extB: fx(-250) });
-  // widths, above the view
-  o += dimH(26, fx(-300), fx(300), "600", { extA: fy(1800), extB: fy(1800) });
-  o += dimH(50, fx(-250), fx(250), "500 rack opening", { extA: fy(1160), extB: fy(1160) });
-
-  o += text(CX, 940, "FRONT ELEVATION", "ga-ti", "middle");
+  return o;
+}
+function rails(v) {
+  return R(v, -250, 270, 250, RACK_TOP, "o") + line(v.X(-241.3), v.Y(270), v.X(-241.3), v.Y(RACK_TOP), "d") + line(v.X(241.3), v.Y(270), v.X(241.3), v.Y(RACK_TOP), "d");
+}
+function uLadder(v, lx, every = 1) {
+  let o = line(lx, v.Y(U0), lx, v.Y(uTop(RACK_U)), "d");
+  for (let i = 0; i <= RACK_U; i++) o += line(lx - (i % 5 === 0 ? 1.4 : 0.8), v.Y(U0 + i * U), lx, v.Y(U0 + i * U), "d");
+  for (let i = 1; i <= RACK_U; i += every) o += text(lx - 1.8, v.Y(U0 + (i - 0.5) * U), `U${i}`, "ul", "end", ` dy="0.35em"`);
   return o;
 }
 
-// ---------- right side elevation ----------
-function sideView() {
+// ---------- sheet 1: general arrangement ----------
+function frontElevation(v) {
   let o = "";
-  let defs = "";
-
-  // castors at 100 and 400 from front
+  for (const c of [-250, 250]) {
+    o += R(v, c - 30, 92, c + 30, 100, "o") + R(v, c - 12, 0, c + 12, 76, "o", 5);
+    o += R(v, c - 16, 38, c - 12, 92, "d") + R(v, c + 12, 38, c + 16, 92, "d") + R(v, c - 16, 84, c + 16, 92, "d");
+    o += R(v, c + 16, 58, c + 34, 68, "d", 1.5);
+  }
+  o += R(v, -300, 100, 300, 1340, "o");
+  o += line(v.X(-300), v.Y(118), v.X(300), v.Y(118), "d");
+  o += line(v.X(-275), v.Y(118), v.X(-275), v.Y(1340), "d") + line(v.X(275), v.Y(118), v.X(275), v.Y(1340), "d");
+  o += R(v, -270, 120, 270, 255, "o") + R(v, -80, 181, 80, 193, "d", 3) + circle(v.X(220), v.Y(187), 7 * v.s + 0.1, "d");
+  o += rails(v) + rackUnits(v);
+  o += R(v, -230, 1275, 230, 1310, "d") + R(v, -220, 1275, 220, 1295, "o", 1) + R(v, -40, 1281, 40, 1288, "d", 3);
+  o += R(v, -307.5, 1340, 307.5, 1355, "o");
+  o += R(v, -300, 1355, -285, 1780, "o") + R(v, 285, 1355, 300, 1780, "o") + R(v, -300, 1780, 300, 1800, "o");
+  let dots = "";
+  for (let x = -272.5; x <= 272.5; x += 25) for (let h = 1367.5; h <= 1770; h += 25) {
+    if (Math.abs(x) < 240 && h > 1382 && h < 1678) continue;
+    if (Math.abs(x) < 80 && h < 1392) continue;
+    dots += `<circle cx="${n(v.X(x))}" cy="${n(v.Y(h))}" r="0.12"/>`;
+  }
+  o += `<g class="dot">${dots}</g>`;
+  o += R(v, -70, 1355, 70, 1365, "o", 2) + R(v, -13, 1365, 13, 1390, "d");
+  o += R(v, -230, 1390, 230, 1670, "o", 3) + R(v, -218, 1408, 218, 1658, "d", 1);
+  o += R(v, 300, 130, 318, 1180, "d") + R(v, 300, 1198, 323, 1222, "d", 2);
+  return o;
+}
+function sideElevation(v) {
+  // here X(z): z is depth back from the cabinet front
+  let o = "", defs = "";
   [100, 400].forEach((z, i) => {
     const fork = [[z - 13, 84], [z + 13, 84], [z + 9, 38], [z - 9, 38]];
-    const forkD = `M${fork.map((p) => `${n(sx(p[0]))} ${n(fy(p[1]))}`).join(" L")} Z`;
-    defs += `<clipPath id="ga-cw${i}"><path clip-rule="evenodd" d="M${n(sx(z - 45))} ${n(fy(90))} H${n(sx(z + 45))} V${n(fy(-5))} H${n(sx(z - 45))} Z ${forkD}"/></clipPath>`;
-    o += `<g clip-path="url(#ga-cw${i})">` + circle(sx(z), fy(38), 38 * S, "ga-o") + circle(sx(z), fy(38), 27 * S, "ga-d") + `</g>`;
-    o += SR(z - 30, 92, z + 30, 100, "ga-o");
-    o += SR(z - 14, 84, z + 14, 92, "ga-d");
-    o += `<path class="ga-d" d="${forkD}"/>`;
-    o += circle(sx(z), fy(38), 9 * S, "ga-d") + circle(sx(z), fy(38), 1.2, "ga-d");
-    if (z === 100) {
-      o += SR(z - 42, 63, z - 14, 70, "ga-d");                // brake lever
-      o += SR(z - 50, 60, z - 38, 73, "ga-d", ` rx="1.5"`);    // pedal pad
-    }
+    const forkD = `M${fork.map((p) => `${n(v.X(p[0]))} ${n(v.Y(p[1]))}`).join(" L")} Z`;
+    defs += `<clipPath id="cw${i}"><path clip-rule="evenodd" d="M${n(v.X(z - 45))} ${n(v.Y(90))} H${n(v.X(z + 45))} V${n(v.Y(-5))} H${n(v.X(z - 45))} Z ${forkD}"/></clipPath>`;
+    o += `<g clip-path="url(#cw${i})">` + circle(v.X(z), v.Y(38), 38 * v.s, "o") + circle(v.X(z), v.Y(38), 27 * v.s, "d") + `</g>`;
+    o += R(v, z - 30, 92, z + 30, 100, "o") + R(v, z - 14, 84, z + 14, 92, "d") + `<path class="d" d="${forkD}"/>`;
+    if (z === 100) o += R(v, z - 42, 63, z - 14, 70, "d") + R(v, z - 50, 60, z - 38, 73, "d", 1.5);
   });
-
-  // lower cabinet body and side panel seam (hidden behind the duct)
-  o += SR(0, 100, 500, 1340, "ga-o");
-  o += line(sx(0), fy(750), sx(75), fy(750), "ga-d");
-  o += line(sx(140), fy(750), sx(500), fy(750), "ga-d");
-
-  // drawer pull seen in profile
-  o += `<path class="ga-d" d="M${n(sx(0))} ${n(fy(181))} H${n(sx(-25))} V${n(fy(193))} H${n(sx(0))}"/>`;
-
-  // keyboard tray, pulled out 200
-  o += SR(-200, 1275, 0, 1295, "ga-o", ` rx="1"`);
-  o += SR(-182, 1295, -22, 1306, "ga-d", ` rx="2"`);          // keyboard
-  o += text(sx(-8), fy(1275) + 16, "tray ≈1295", "ga-lb", "end");
-  o += text(sx(-8), fy(1275) + 29, "above floor", "ga-lb", "end");
-
-  // worktop, posts, top frame
-  o += SR(-7.5, 1340, 507.5, 1355, "ga-o");
-  o += SR(0, 1355, 15, 1780, "ga-o");
-  o += SR(485, 1355, 500, 1780, "ga-o");
-  o += SR(0, 1780, 500, 1800, "ga-o");
-
-  // monitor and stand
-  o += SR(95, 1355, 185, 1365, "ga-o", ` rx="2"`);
-  o += SR(127, 1365, 153, 1560, "ga-d");
-  o += SR(120, 1505, 127, 1555, "ga-d");
-  o += SR(100, 1390, 120, 1670, "ga-o", ` rx="2"`);
-
-  // HMIET-I AVRs (S3, S4) behind the side panel, hidden: 3 front panel + body to 267 deep
-  for (const hc of [715.5, 893.5]) {
-    o += SR(0, hc - AVR_H / 2, 3, hc + AVR_H / 2, "ga-hid");
-    o += SR(3, hc - AVR_H / 2 + 4, AVR_D, hc + AVR_H / 2 - 4, "ga-hid");
+  o += R(v, 0, 100, 500, 1340, "o");
+  o += line(v.X(0), v.Y(750), v.X(75), v.Y(750), "d") + line(v.X(140), v.Y(750), v.X(500), v.Y(750), "d");
+  o += `<path class="d" d="M${n(v.X(0))} ${n(v.Y(181))} H${n(v.X(-25))} V${n(v.Y(193))} H${n(v.X(0))}"/>`;
+  o += R(v, -200, 1275, 0, 1295, "o", 1) + R(v, -182, 1295, -22, 1306, "d", 2);
+  o += R(v, -7.5, 1340, 507.5, 1355, "o") + R(v, 0, 1355, 15, 1780, "o") + R(v, 485, 1355, 500, 1780, "o") + R(v, 0, 1780, 500, 1800, "o");
+  o += R(v, 95, 1355, 185, 1365, "o", 2) + R(v, 127, 1365, 153, 1560, "d") + R(v, 120, 1505, 127, 1555, "d") + R(v, 100, 1390, 120, 1670, "o", 2);
+  // hidden: rack units behind the side panel (front plate 3 thick + body), BCD box on the back panel
+  for (const s of SLOTS) {
+    const h = s.kind === "avr" ? AVR_H : s.kind === "hmjk" ? HMJK.h : s.b - s.a - 2;
+    const pad = s.kind === "hmjk" ? 9 : 4;
+    o += R(v, 0, s.hc - h / 2, 3, s.hc + h / 2, "h") + R(v, 3, s.hc - h / 2 + pad, s.depth, s.hc + h / 2 - pad, "h");
   }
-
-  // cable duct
-  o += SR(75, 130, 140, 1180, "ga-o", ` rx="2"`);
-  o += line(sx(80), fy(140), sx(80), fy(1170), "ga-d");
-
-  // 13 A power strip, lead and plug
-  o += SR(230, 150, 450, 195, "ga-o", ` rx="3"`);
-  o += SR(240, 164, 256, 181, "ga-d", ` rx="1"`);              // switch
-  for (let i = 0; i < 4; i++) o += SR(270 + i * 44, 160, 302 + i * 44, 186, "ga-d", ` rx="2"`);
-  o += `<path class="ga-d" d="M${n(sx(445))} ${n(fy(150))} V${n(fy(24))} Q${n(sx(445))} ${n(fy(4))} ${n(sx(465))} ${n(fy(4))} H${n(sx(505))}"/>`;
-  o += SR(505, 0, 540, 30, "ga-o", ` rx="2"`);
-  o += line(sx(540), fy(9), sx(552), fy(9), "ga-d") + line(sx(540), fy(21), sx(552), fy(21), "ga-d");
-
-  // intake fan
-  const fzc = 380, fhc = 560;
-  o += SR(fzc - 60, fhc - 60, fzc + 60, fhc + 60, "ga-o", ` rx="4"`);
-  for (const r of [54, 40, 26]) o += circle(sx(fzc), fy(fhc), r * S, "ga-d");
-  o += circle(sx(fzc), fy(fhc), 12 * S, "ga-o");
-  o += line(sx(fzc - 54), fy(fhc), sx(fzc - 12), fy(fhc), "ga-d") + line(sx(fzc + 12), fy(fhc), sx(fzc + 54), fy(fhc), "ga-d");
-  o += line(sx(fzc), fy(fhc - 54), sx(fzc), fy(fhc - 12), "ga-d") + line(sx(fzc), fy(fhc + 12), sx(fzc), fy(fhc + 54), "ga-d");
-  for (const [dz, dh] of [[-52.5, -52.5], [52.5, -52.5], [-52.5, 52.5], [52.5, 52.5]]) o += circle(sx(fzc + dz), fy(fhc + dh), 1.3, "ga-scr");
-
-  // louvres (exhaust); the push handle (1198–1222) runs across the lower part, so no slats there
-  o += SR(300, 1180, 470, 1300, "ga-o", ` rx="2"`);
-  for (const h of [1184, 1228, 1240, 1252, 1264, 1276, 1288]) o += SR(310, h, 460, h + 6, "ga-d", ` rx="1"`);
-  // push handle
-  o += SR(232, 1203, 428, 1217, "ga-o");
-  o += SR(210, 1198, 232, 1222, "ga-o", ` rx="2"`);
-  o += SR(428, 1198, 450, 1222, "ga-o", ` rx="2"`);
-
-  // earth stud
-  o += circle(sx(470), fy(150), 8 * S, "ga-o") + circle(sx(470), fy(150), 1.2, "ga-d");
-
-  // callouts, right of the view
-  const KX = 1040;
-  const C = [
-    [480, 1790, 1790, "top frame bars"],
-    [470, 1270, 1278, "louvres (exhaust)"],
-    [450, 1210, 1212, "push handle, 23 proud"],
-    [140, 1000, 1000, "cable duct 65×18"],
-    [420, 750, 790, "side panel seam"],
-    [440, 560, 560, "intake fan Ø120"],
-    [450, 195, 238, "13 A power strip"],
-    [473.6, 150, 150, "earth stud"],
-    [530, 30, 70, "13 A plug, lead to floor"],
-  ];
-  for (const [z, h, lh, t] of C) o += leader(sx(z), fy(h), KX, fy(lh), t);
-  o += leader(sx(AVR_D), fy(893.5), KX, fy(893.5), ["HMIET-I AVR ×2 (hidden)", "body 267 deep"]);
-
-  // dimensions
-  o += dimV(675, fy(0), fy(1295), "tray 1295", { extB: sx(-200) });
-  o += dimV(675, fy(1390), fy(1670), "monitor 1390–1670", { extA: sx(100), extB: sx(100) });
-  o += dimH(fy(1712), sx(0), sx(100), "100", { extB: fy(1670) });
-  o += dimH(912, sx(-200), sx(0), "200 pull-out", { extA: fy(1275), extB: fy(100) });
-  o += dimH(912, sx(0), sx(500), "500", { extB: fy(100) });
-
-  o += text(sx(250), 940, "RIGHT SIDE ELEVATION", "ga-ti", "middle");
+  o += R(v, 425, 1000, 497, 1120, "h");
+  o += R(v, 497, 300, 503, 345, "o");                                     // rear brush plate, edge on
+  o += R(v, 75, 130, 140, 1180, "o", 2) + line(v.X(80), v.Y(140), v.X(80), v.Y(1170), "d");
+  o += R(v, 230, 150, 450, 195, "o", 3) + R(v, 240, 164, 256, 181, "d", 1);
+  for (let i = 0; i < 4; i++) o += R(v, 270 + i * 44, 160, 302 + i * 44, 186, "d", 2);
+  o += `<path class="d" d="M${n(v.X(445))} ${n(v.Y(150))} V${n(v.Y(24))} Q${n(v.X(445))} ${n(v.Y(4))} ${n(v.X(465))} ${n(v.Y(4))} H${n(v.X(505))}"/>`;
+  o += R(v, 505, 0, 540, 30, "o", 2);
+  const fz = 380, fh = 560;
+  o += R(v, fz - 60, fh - 60, fz + 60, fh + 60, "o", 4);
+  for (const r of [54, 40, 26]) o += circle(v.X(fz), v.Y(fh), r * v.s, "d");
+  o += circle(v.X(fz), v.Y(fh), 12 * v.s, "o");
+  o += R(v, 300, 1180, 470, 1300, "o", 2);
+  for (const h of [1184, 1228, 1240, 1252, 1264, 1276, 1288]) o += R(v, 310, h, 460, h + 6, "d", 1);
+  o += R(v, 232, 1203, 428, 1217, "o") + R(v, 210, 1198, 232, 1222, "o", 2) + R(v, 428, 1198, 450, 1222, "o", 2);
+  o += circle(v.X(470), v.Y(150), 8 * v.s, "o");
   return { o, defs };
 }
 
-function titleBlock() {
-  const x = 800, y = 952, w = 430, h = 42, mid = 1010;
-  let o = rect(x, y, x + w, y + h, "ga-o");
-  o += line(x, y + h / 2, x + w, y + h / 2, "ga-d");
-  o += line(mid, y, mid, y + h, "ga-d");
-  o += text(x + 8, y + 15, "AVR DEMO CABINET", "ga-tb ga-tb-b");
-  o += text(mid + 8, y + 15, "GENERAL ARRANGEMENT", "ga-tb");
-  o += text(x + 8, y + 36, "DIMENSIONS IN mm", "ga-tb");
-  o += text(mid + 8, y + 36, "CONCEPT, NOV 2026", "ga-tb");
+function sheet1() {
+  const F = view(70, 172, 1 / 12);       // front: x from the centre
+  const Sd = view(192, 172, 1 / 12);     // side: x = depth from the front face
+  let o = line(14, F.Y(0), 240, F.Y(0), "fl") + text(15, F.Y(0) + 2.6, "FLOOR", "dt");
+  o += frontElevation(F);
+  const side = sideElevation(Sd);
+  o += side.o;
+  o += uLadder(F, 42);
+  // front dimensions
+  o += dimV(20, F.Y(0), F.Y(1800), "1800", { extB: F.X(-300) });
+  o += dimV(26, F.Y(0), F.Y(1340), "1340 worktop", { extB: F.X(-307.5) });
+  o += dimV(32, F.Y(0), F.Y(100), "100", { extB: F.X(-300) });
+  o += dimV(32, F.Y(270), F.Y(RACK_TOP), `rack 270–${RACK_TOP} · ${RACK_U}U`, { extA: F.X(-250), extB: F.X(-250) });
+  o += dimH(18, F.X(-300), F.X(300), "600", { extA: F.Y(1800), extB: F.Y(1800) });
+  // front callouts
+  const kx = 104;
+  const pt = (x, h) => ({ px: F.X(x), py: F.Y(h) });
+  const S1 = slot("sim"), S2 = slot("hmjk"), S3 = slot("avr", 0), S4 = slot("avr", 1), S5 = slot("hmc");
+  const fc = [
+    [pt(260, 1790), ["top frame 1780–1800"]],
+    [pt(292, 1745), ["posts 15 × 15"]],
+    [pt(272.5, 1717.5), ["perforated back panel"]],
+    [pt(230, 1600), ["monitor ≈22″, 460 × 280"]],
+    [pt(70, 1360), ["monitor stand"]],
+    [pt(307.5, 1347), ["worktop 15 thk"]],
+    [pt(220, 1285), ["keyboard tray 440 W"]],
+    [pt(323, 1215), ["push handle (R side)"]],
+    [{ ...pt(221, S5.hc), accent: true }, [`S5 · S6 · HMC-3C × 2 · U20–22`, "T1 · T2 tap indicators, 192 × 96"]],
+    [{ ...pt(241.4, S4.hc), accent: true }, [`S4 · HMIET-I AVR · U16–19`, "T2 follower"]],
+    [{ ...pt(241.4, S3.hc), accent: true }, [`S3 · HMIET-I AVR · U12–15`, "T1 master, 482.8 × 177"]],
+    [{ ...pt(140, S2.hc), accent: true }, [`S2 · HMJK-II × 2 · U4–11`, "OLTC monitors T1 · T2", "each 130 × 340, 8U plate"]],
+    [pt(241.3, S1.hc), [`S1 · tap-changer simulator · U1–3`]],
+    [pt(318, 230), ["cable duct (R side)"]],
+    [pt(227, 187), ["locker drawer + lock"]],
+    [pt(288, 109), ["kick plate"]],
+    [pt(284, 63), ["3″ castor, lockable"]],
+  ].map(([p, lines]) => ({ ...p, want: p.py, lines }));
+  o += callouts(fc, kx, 22, F.Y(0) - 1);
+  // side dimensions
+  o += dimV(170, Sd.Y(0), Sd.Y(1295), "tray 1295", { extB: Sd.X(-200) });
+  o += dimV(170, Sd.Y(1390), Sd.Y(1670), "monitor 1390–1670", { extA: Sd.X(100), extB: Sd.X(100) });
+  o += dimH(Sd.Y(1712), Sd.X(0), Sd.X(100), "100", { extB: Sd.Y(1670) });
+  o += dimH(F.Y(0) + 5.2, Sd.X(-200), Sd.X(0), "200 pull-out", { extA: Sd.Y(1275) });
+  o += dimH(F.Y(0) + 5.2, Sd.X(0), Sd.X(500), "500", { extB: Sd.Y(100) });
+  const zp = (z, h) => ({ px: Sd.X(z), py: Sd.Y(h) });
+  const sc = [
+    [zp(480, 1790), ["top frame bars"]],
+    [zp(470, 1270), ["louvres (exhaust)"]],
+    [zp(450, 1210), ["push handle, 23 proud"]],
+    [{ ...zp(461, 1060), accent: true }, ["BCD box, inside on back panel", "200 × 120 × 75, size TBC"]],
+    [{ ...zp(AVR_D, S4.hc), accent: true }, ["HMIET-I × 2 (hidden), 267 deep"]],
+    [{ ...zp(HMJK.d, S2.hc + 120), accent: true }, ["HMJK-II × 2 (hidden), 200 deep"]],
+    [zp(140, 880), ["cable duct 65 × 18"]],
+    [zp(420, 750), ["side panel seam"]],
+    [zp(440, 560), ["intake fan Ø120"]],
+    [zp(503, 322), ["cable entry, brush plate on back"]],
+    [zp(450, 195), ["13 A power strip"]],
+    [zp(473.6, 150), ["earth stud"]],
+    [zp(530, 30), ["13 A plug, lead to floor"]],
+  ].map(([p, lines]) => ({ ...p, want: p.py, lines }));
+  o += callouts(sc, 244, 22, F.Y(0) - 1);
+  o += text(F.X(0), 184, "FRONT ELEVATION", "vt", "middle") + text(Sd.X(250), 184, "RIGHT SIDE ELEVATION", "vt", "middle");
+  return { body: o, defs: side.defs, title: "General arrangement", scale: "1:12" };
+}
+
+// ---------- sheet 2: rack front ----------
+function sheet2() {
+  const v = view(84, 28 + RACK_TOP / 6, 1 / 6);
+  let o = R(v, -300, 255, 300, RACK_TOP + 6, "d");
+  o += rails(v) + rackUnits(v);
+  o += uLadder(v, v.X(-300) - 3);
+  // slot heights at the left
+  const dx = v.X(-300) - 13;
+  for (const s of SLOTS) o += dimV(dx, v.Y(s.a + 1), v.Y(s.b - 1), `${Math.round(s.b - s.a - 2)}`);
+  o += dimV(dx - 7, v.Y(270), v.Y(RACK_TOP), `270–${RACK_TOP} · ${RACK_U}U`, { extA: v.X(-300) - 4.2, extB: v.X(-300) - 4.2 });
+  o += dimH(20, v.X(-241.3), v.X(241.3), "482.6 (19″)", { extA: v.Y(RACK_TOP), extB: v.Y(RACK_TOP) });
+  o += dimH(14.5, v.X(-250), v.X(250), "500 rack opening", { extA: v.Y(RACK_TOP), extB: v.Y(RACK_TOP) });
+  const S2 = slot("hmjk");
+  o += dimV(v.X(HMJK.x + HMJK.w / 2) + 4, v.Y(S2.hc - HMJK.h / 2), v.Y(S2.hc + HMJK.h / 2), "340.4");
+  // slot labels at the right of the rack
+  const kx = v.X(250) + 6;
+  o += callouts(SLOTS.map((s) => ({ px: v.X(241.3), py: v.Y(s.hc), want: v.Y(s.hc) - 1.2, accent: s.kind === "avr" || s.kind === "hmjk", lines: [`${s.id} · ${s.name}`, `U${s.u[0]}–${s.u[1]} · ${s.size} · ${Math.round(s.a + 1)}–${Math.round(s.b - 1)} mm · ${s.depth} deep`, ...(s.kind === "hmjk" ? ["each 130 × 340.4, centres 150 apart"] : [])] })), kx, 26, 182);
+  // notes
+  const NX = 200;
+  const notes = [
+    "Rev B changes",
+    "Grid source removed.",
+    "Tap-changer simulator 4U → 3U.",
+    "HMJK-II × 2 added, upright on one 8U plate.",
+    "Rack 20U → 22U, top 1160 → 1250 mm;",
+    "fascia vents dropped, side louvres vent.",
+    "Front U20 brush panel moved to the back.",
+    "BCD box added inside, on the back panel.",
+  ];
+  o += notes.map((t, i) => text(NX, 146 + i * 3.6, t, i ? "lb" : "lb lb-h")).join("");
+  o += text(v.X(0), 197, "RACK FRONT ELEVATION", "vt", "middle");
+  return { body: o, defs: "", title: "Rack front", scale: "1:6" };
+}
+
+// ---------- sheet 3: system layout ----------
+export const SHMD = { w: 750, h: 816, d: 359 };
+export const JB = { w: 300, h: 400, d: 150 };
+export const BCD = { w: 200, h: 120, d: 75 };
+export const CABLES = [
+  ["W1", "Junction box", "BCD box", "BCD tap position", "10 × 1.5"],
+  ["W2", "Junction box", "HMJK-II", "Motor voltage + current", "8 × 1.5"],
+  ["W3", "Junction box", "AVR", "Raise / lower / status", "TBC"],
+  ["W4", "Cabinet", "Junction box → SHM-D", "Supply 230 V", "3 × 2.5"],
+];
+function sheet3() {
+  const SC = 1 / 15, FY = 154;
+  const v = view(0, FY, SC);
+  let o = line(14, FY, 180, FY, "fl") + text(15, FY + 2.6, "FLOOR", "dt");
+  // cabinet, simplified
+  const C = view(37, FY, SC);
+  o += R(C, -300, 100, 300, 1340, "o") + R(C, -250, 270, 250, RACK_TOP, "d") + R(C, -307.5, 1340, 307.5, 1355, "o");
+  o += R(C, -300, 1355, -285, 1780, "o") + R(C, 285, 1355, 300, 1780, "o") + R(C, -300, 1780, 300, 1800, "o") + R(C, -230, 1390, 230, 1670, "d", 3);
+  for (const s of SLOTS) o += R(C, -241.3, s.a + 1, 241.3, s.b - 1, "d");
+  for (const c of [-250, 250]) o += R(C, c - 12, 0, c + 12, 76, "d", 5) + R(C, c - 30, 92, c + 30, 100, "d");
+  o += R(C, -100, 1000, 100, 1120, "kf") + text(C.X(0), C.Y(1060), "BCD", "ts", "middle", ` dy="0.35em"`);
+  o += text(C.X(0), FY + 8, "DEMO CABINET", "vt", "middle");
+  // two motor drives (outside), each with its junction box under it
+  const mdBottom = 900, jbTop = mdBottom - 120, jbBottom = jbTop - JB.h;
+  let wires = "";
+  [["T1", 98], ["T2", 150]].forEach(([t, mx], i) => {
+    const M = view(mx, FY, SC);
+    o += R(M, -SHMD.w / 2, mdBottom, SHMD.w / 2, mdBottom + SHMD.h, "ok", 30);
+    o += R(M, -110, mdBottom + 520, -10, mdBottom + 700, "d", 8) + circle(M.X(-60), M.Y(mdBottom + 640), 1.2, "d");
+    o += circle(M.X(0), M.Y(mdBottom + SHMD.h - 446.5), 0.8, "d");
+    o += text(M.X(0), M.Y(mdBottom + 300), `SHM-D ${t}`, "ts", "middle");
+    o += line(M.X(-300), M.Y(mdBottom), M.X(-300), FY, "c") + line(M.X(300), M.Y(mdBottom), M.X(300), FY, "c");
+    o += R(M, -JB.w / 2, jbBottom, JB.w / 2, jbTop, "ok", 8) + text(M.X(0), M.Y((jbTop + jbBottom) / 2), "JB", "ts", "middle", ` dy="0.35em"`);
+    o += line(M.X(-60), M.Y(jbTop), M.X(-60), M.Y(mdBottom), "w") + line(M.X(60), M.Y(jbTop), M.X(60), M.Y(mdBottom), "w");
+    const run = 100 - i * 60;
+    wires += `<path class="w" d="M${n(M.X(0))} ${n(M.Y(jbBottom))} V${n(v.Y(run))} H${n(C.X(300) + 2.4 - i * 1.2)} V${n(C.Y(322))} H${n(C.X(300))}"/>`;
+    o += text(M.X(0) + 2.4, M.Y(jbBottom) + 1, `W1–W4 ${t}`, "ts", "end", ` transform="rotate(-90 ${n(M.X(0) + 2.4)} ${n(M.Y(jbBottom) + 1)})"`);
+  });
+  o += wires + text(C.X(300) + 4, C.Y(322) - 3, "to rear brush plate", "ts");
+  const M1 = view(98, FY, SC), M2 = view(150, FY, SC);
+  o += dimH(M1.Y(mdBottom + SHMD.h) - 3, M1.X(-SHMD.w / 2), M1.X(SHMD.w / 2), "750", { extA: M1.Y(mdBottom + SHMD.h), extB: M1.Y(mdBottom + SHMD.h) });
+  o += dimV(M2.X(SHMD.w / 2) + 4, M2.Y(mdBottom), M2.Y(mdBottom + SHMD.h), "816", { extA: M2.X(SHMD.w / 2), extB: M2.X(SHMD.w / 2) });
+  o += dimV(M2.X(JB.w / 2) + 4, M2.Y(jbBottom), M2.Y(jbTop), "400", { extA: M2.X(JB.w / 2), extB: M2.X(JB.w / 2) });
+  o += text(124, FY + 8, "OUTSIDE: 2 × SHM-D, ONE JUNCTION BOX EACH", "vt", "middle");
+  o += text(124, FY + 11.4, "positions schematic", "lb lb2", "middle");
+  // cable schedule
+  const tx = 15, ty = 172, cw = [11, 25, 36, 44, 16];
+  const hdr = ["Cable", "From", "To", "Signal", "Cores"];
+  let x = tx;
+  o += line(tx, ty + 1.4, tx + cw.reduce((a, b) => a + b), ty + 1.4, "d");
+  hdr.forEach((h, i) => { o += text(x, ty, h, "lb lb-h"); x += cw[i]; });
+  CABLES.forEach((row, r) => {
+    x = tx;
+    row.forEach((c, i) => { o += text(x, ty + 5 + r * 3.6, c, i ? "lb" : "lb lb-k"); x += cw[i]; });
+  });
+  o += text(tx, ty + 5 + CABLES.length * 3.6 + 0.4, "One set per motor drive (T1, T2).", "lb lb2");
+  // details: HMJK-II 1:5, junction box 1:10, BCD box 1:5
+  const D = view(205, 92, 1 / 5);
+  o += hmjk(D, 0, HMJK.h / 2);
+  o += dimH(D.Y(HMJK.h) - 3, D.X(-HMJK.w / 2), D.X(HMJK.w / 2), "130", { extA: D.Y(HMJK.h), extB: D.Y(HMJK.h) });
+  o += dimV(D.X(-HMJK.w / 2) - 4, D.Y(0), D.Y(HMJK.h), "340.4", { extA: D.X(-HMJK.w / 2), extB: D.X(-HMJK.w / 2) });
+  const Ds = view(D.X(HMJK.w / 2) + 10, 92, 1 / 5);
+  o += R(Ds, 0, 0, 4, HMJK.h, "o") + R(Ds, 4, 9, HMJK.d, HMJK.h - 9, "o", 2);
+  for (let i = 0; i < 5; i++) o += R(Ds, HMJK.d - 4, 40 + i * 55, HMJK.d, 80 + i * 55, "d");
+  o += dimH(Ds.Y(HMJK.h) - 3, Ds.X(0), Ds.X(HMJK.d), "200", { extA: Ds.Y(HMJK.h), extB: Ds.Y(HMJK.h - 9) });
+  o += text(Ds.X(HMJK.d / 2) - 13, 99, "HMJK-II OLTC MONITOR · 1:5", "vt", "middle");
+  const J = view(205, 152, 1 / 10);
+  o += R(J, -JB.w / 2, 0, JB.w / 2, JB.h, "ok", 10) + R(J, -JB.w / 2 + 20, 20, JB.w / 2 - 20, JB.h - 20, "d", 4);
+  for (const h of [120, 280]) o += R(J, -JB.w / 2 + 40, h - 15, JB.w / 2 - 40, h + 15, "d");
+  for (const x of [-90, -30, 30, 90]) o += circle(J.X(x), J.Y(-12), 1, "o");
+  o += dimH(J.Y(JB.h) - 3, J.X(-JB.w / 2), J.X(JB.w / 2), "300 (TBC)", { extA: J.Y(JB.h), extB: J.Y(JB.h) });
+  o += dimV(J.X(-JB.w / 2) - 4, J.Y(0), J.Y(JB.h), "400 (TBC)", { extA: J.X(-JB.w / 2), extB: J.X(-JB.w / 2) });
+  const Js = view(J.X(JB.w / 2) + 6, 152, 1 / 10);
+  o += R(Js, 0, 0, JB.d, JB.h, "ok", 6);
+  o += dimH(Js.Y(JB.h) - 3, Js.X(0), Js.X(JB.d), "150", { extA: Js.Y(JB.h), extB: Js.Y(JB.h) });
+  o += text(J.X(0) + 8, 159, "JUNCTION BOX × 2 · 1:10", "vt", "middle");
+  const Bc = view(262, 136, 1 / 5);
+  o += R(Bc, -BCD.w / 2, 0, BCD.w / 2, BCD.h, "ok", 4) + line(Bc.X(-BCD.w / 2), Bc.Y(BCD.h / 2), Bc.X(BCD.w / 2), Bc.Y(BCD.h / 2), "c");
+  for (let i = 0; i < 12; i++) o += R(Bc, -85 + i * 14.5, 20, -75 + i * 14.5, 48, "d");
+  o += dimH(Bc.Y(BCD.h) - 3, Bc.X(-BCD.w / 2), Bc.X(BCD.w / 2), "200 (TBC)", { extA: Bc.Y(BCD.h), extB: Bc.Y(BCD.h) });
+  o += dimV(Bc.X(BCD.w / 2) + 4, Bc.Y(0), Bc.Y(BCD.h), "120", { extA: Bc.X(BCD.w / 2), extB: Bc.X(BCD.w / 2) });
+  o += text(Bc.X(0), 143, "BCD BOX × 1 · 1:5", "vt", "middle");
+  o += text(Bc.X(0), 147, "inside, back panel, 75 deep", "lb lb2", "middle");
+  return { body: o, defs: "", title: "System layout", scale: "1:15" };
+}
+
+// ---------- frame and title block ----------
+function frame(sheet, no, total) {
+  let o = rect(10, 10, 287, 200, "fr");
+  const x = 177, y = 186, w = 110, h = 14;
+  o += rect(x, y, x + w, y + h, "fr") + line(x, y + 7, x + w, y + 7, "d") + line(x + 62, y, x + 62, y + h, "d") + line(x + 86, y, x + 86, y + h, "d");
+  o += text(x + 2, y + 5, "AVR DEMO CABINET", "tb tb-b");
+  o += text(x + 2, y + 12, sheet.title.toUpperCase(), "tb");
+  o += text(x + 64, y + 3, "SCALE", "tb-s") + text(x + 64, y + 6.2, `${sheet.scale} (A4)`, "tb");
+  o += text(x + 64, y + 10, "UNITS", "tb-s") + text(x + 64, y + 13.2, "mm", "tb");
+  o += text(x + 88, y + 3, "SHEET", "tb-s") + text(x + 88, y + 6.2, `${no} OF ${total}`, "tb");
+  o += text(x + 88, y + 10, "REV", "tb-s") + text(x + 88, y + 13.2, `${REV} · ${DATE}`, "tb");
   return o;
 }
 
-const STYLE = `
-.ga-svg text{font-family:"JetBrains Mono",ui-monospace,Consolas,monospace}
-.ga-o{fill:none;stroke:var(--draw-ink,#1b1f22);stroke-width:1.2;stroke-linejoin:round}
-.ga-d{fill:none;stroke:var(--draw-line,#8d989d);stroke-width:0.7;stroke-linejoin:round}
-.ga-acc{fill:none;stroke:var(--draw-accent,#c46d00);stroke-width:1.2}
-.ga-hid{fill:none;stroke:var(--draw-accent,#c46d00);stroke-width:0.7;stroke-dasharray:4 2.5}
-.ga-tx{stroke:var(--draw-line,#8d989d);stroke-width:1.4;stroke-linecap:round;stroke-dasharray:2 1.2}
-.ga-dim{stroke:var(--draw-dim,#5b676d);stroke-width:0.6}
-.ga-arw{fill:var(--draw-dim,#5b676d);stroke:none}
-.ga-ld{fill:none;stroke:var(--draw-line,#8d989d);stroke-width:0.6}
-.ga-ldot{fill:var(--draw-dim,#5b676d);stroke:none}
-.ga-scr{fill:none;stroke:var(--draw-line,#8d989d);stroke-width:0.6}
-.ga-dot{fill:var(--draw-line,#8d989d)}
-.ga-floor{stroke:var(--draw-ink,#1b1f22);stroke-width:1.2}
-.ga-dt{font-size:10px;fill:var(--draw-dim,#5b676d)}
-.ga-lb{font-size:10px;fill:var(--draw-ink,#1b1f22)}
-.ga-lb-acc{fill:var(--draw-accent,#c46d00);font-weight:600}
-.ga-lb2{fill:var(--draw-dim,#5b676d);font-weight:400}
-.ga-ul{font-size:10px;fill:var(--draw-dim,#5b676d)}
-.ga-sl{font-size:11px;fill:var(--draw-ink,#1b1f22)}
-.ga-sl-acc{fill:var(--draw-accent,#c46d00)}
-.ga-sl-dim{fill:var(--draw-dim,#5b676d)}
-.ga-ti{font-size:12px;font-weight:600;letter-spacing:0.08em;fill:var(--draw-ink,#1b1f22)}
-.ga-tb{font-size:10px;letter-spacing:0.04em;fill:var(--draw-dim,#5b676d)}
-.ga-tb-b{font-size:12px;font-weight:600;fill:var(--draw-ink,#1b1f22)}
+export const STYLE = `
+.sh{background:#fff}
+.sh text{font-family:Arial,"Helvetica Neue",Helvetica,sans-serif;fill:#111}
+.o,.ok{fill:none;stroke:#111;stroke-width:.3;stroke-linejoin:round}
+.ok{stroke:#1d4ed8}
+.d{fill:none;stroke:#555;stroke-width:.13;stroke-linejoin:round}
+.g{fill:#e9ecef;stroke:#555;stroke-width:.1}
+.kf{fill:#dbe4ff;stroke:#1d4ed8;stroke-width:.2}
+.h{fill:none;stroke:#1d4ed8;stroke-width:.15;stroke-dasharray:1 .6}
+.c{fill:none;stroke:#777;stroke-width:.12;stroke-dasharray:3 .7 .5 .7}
+.w{fill:none;stroke:#1d4ed8;stroke-width:.35;stroke-linejoin:round}
+.pr{stroke:#666;stroke-linecap:round;stroke-dasharray:.5 .25}
+.dm{stroke:#333;stroke-width:.1}
+.ar{fill:#333}
+.ld{fill:none;stroke:#555;stroke-width:.1}
+.ld-dot{fill:#333}
+.dot{fill:#777}
+.fl{stroke:#111;stroke-width:.3}
+.fr{fill:none;stroke:#111;stroke-width:.4}
+.dt{font-size:1.9px;fill:#333}
+.lb{font-size:2px}
+.lb2{fill:#555 !important}
+.lb-k{fill:#1d4ed8 !important;font-weight:700}
+.lb-h{font-weight:700}
+.ts{font-size:1.8px}
+.ul{font-size:1.6px;fill:#555 !important}
+.vt{font-size:2.6px;font-weight:700;letter-spacing:.12px}
+.tb{font-size:2.2px}
+.tb-b{font-size:2.8px;font-weight:700}
+.tb-s{font-size:1.5px;fill:#666 !important;letter-spacing:.1px}
 `;
 
-export function elevations() {
-  const side = sideView();
-  const body =
-    line(20, FLOOR, 1070, FLOOR, "ga-floor") +
-    text(22, FLOOR + 14, "FLOOR", "ga-dt") +
-    frontView() +
-    side.o +
-    titleBlock();
-  return (
-    `<svg xmlns="http://www.w3.org/2000/svg" class="ga-svg" viewBox="0 0 ${W} ${H}" width="100%" role="img" ` +
-    `aria-label="AVR demo cabinet general arrangement: front and right side elevations, 600 wide, 500 deep, 1800 high, 20U rack with two HMIET-I AVRs and two HMC-3C tap indicators, dimensions in mm">` +
-    `<style>${STYLE}</style><defs>${side.defs}</defs>${body}</svg>`
-  );
+export function sheets() {
+  const list = [sheet1(), sheet2(), sheet3()];
+  return list.map((s, i) => ({
+    title: s.title,
+    scale: s.scale,
+    svg:
+      `<svg xmlns="http://www.w3.org/2000/svg" class="sh" viewBox="0 0 ${SHEET_W} ${SHEET_H}" width="${SHEET_W}mm" height="${SHEET_H}mm" role="img" aria-label="Sheet ${i + 1}: ${esc(s.title)}">` +
+      `<style>${STYLE}</style><defs>${s.defs}</defs><rect x="0" y="0" width="${SHEET_W}" height="${SHEET_H}" fill="#fff"/>${s.body}${frame(s, i + 1, list.length)}</svg>`,
+  }));
 }
