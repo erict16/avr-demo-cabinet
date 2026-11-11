@@ -2,12 +2,13 @@
 
 Run:  blender -b --factory-startup -P blender/cabinet.py -- <out.glb> [<poster.webp> [<shots dir>]]
 Sizes follow SPEC.md / figure.mjs: 1 figure unit = 5 mm, front of the cabinet faces -Y.
-Rev B (Nov 2026), 22U rack 270-1250 mm, bottom to top: S1 tap-changer simulator 3U (U1-3),
-S2 two HMJK-II OLTC monitors on one 8U plate (U4-11), S3 HMIET-I AVR T1 master 4U (U12-15),
-S4 HMIET-I AVR T2 follower 4U (U16-19), S5+S6 two HMC-3C on a 3U plate (U20-22).
-No grid source: the loop is a manual raise on the T1 master, the follower copies, then a lower.
-Inside on the back panel: brush-strip cable entry plate and the BCD box. Fascia 1250-1340 holds
-only the keyboard tray slot.
+Rev C (11 Nov 2026), 20U rack 270-1160 mm, bottom to top: HMIET-I AVR T1 master 4U (U1-4),
+HMIET-I AVR T2 follower 4U (U5-8), remote control module T1 2U (U9-10), remote control module T2
+2U (U11-12), blank spare 2U (U13-14), HMJK-II OLTC monitor landscape on a 3U plate (U15-17),
+SHM-KX controller on a 3U plate (U18-20).
+The loop is a manual raise on the T1 master, the follower copies, then a lower (LCDs only).
+Inside on the back panel: brush-strip cable entry plate and the BCD box. Fascia 1160-1340 holds
+the keyboard tray slot.
 """
 import math
 import os
@@ -50,10 +51,8 @@ FONT_DIR = bpy.utils.system_resource("DATAFILES", path="fonts")
 WINF = os.path.join(os.environ.get("WINDIR", r"C:\Windows"), "Fonts")
 F_SANS = first(os.path.join(WINF, "arial.ttf"), os.path.join(FONT_DIR, "Inter.woff2"))
 F_BOLD = first(os.path.join(WINF, "arialbd.ttf"), os.path.join(FONT_DIR, "Inter.woff2"))
-F_CJK = first(os.path.join(FONT_DIR, "Noto Sans CJK Regular.woff2"), os.path.join(WINF, "msyh.ttc"), F_SANS)
 VF_SANS = bpy.data.fonts.load(F_SANS)
 VF_BOLD = bpy.data.fonts.load(F_BOLD)
-VF_CJK = bpy.data.fonts.load(F_CJK)
 VF_ROMAN = bpy.data.fonts.load(first(os.path.join(WINF, "timesbd.ttf"), F_BOLD))
 
 
@@ -126,21 +125,17 @@ M = {
     "red": mat("Red paint", "#c8372a", 0.4),
     "worktop": mat("Worktop laminate", "#50565a", 0.5),
     "label": mat("Label plate", "#ecede8", 0.45),
-    # HMC-3C
-    "hmcBezel": mat("HMC bezel", "#a7acae", 0.45),
-    "ledWin": mat("LED window", "#240707", 0.1, coat=1.0),
-    "ledOff": mat("LED segment off", "#2c0a08", 0.3),
-    "ledOn": mat("LED segment on", "#ff3a2a", 0.3, 0.0, "#ff2a2a", 2.4),
-    "keyCollar": mat("Key collar", "#3a3e41", 0.4),
-    "hmcGreen": mat("HMC key green", "#2fa45a", 0.18, coat=0.8),
-    "hmcGreenLit": mat("HMC key green lit", "#6ef09c", 0.2, 0.0, "#41e07e", 1.4),
-    "hmcRedLit": mat("HMC key red lit", "#ff5040", 0.2, 0.0, "#ff2a1e", 1.3),
-    # HMJK-II, BCD box
+    # remote control module, SHM-KX keys
+    "devGrey": mat("Device panel grey", "#dfe2e4", 0.5),
+    "keyGreen": mat("Key green", "#2fa45a", 0.18, coat=0.8),
+    "stopRed": mat("Stop red", "#d93a3a", 0.18, coat=0.8),
+    # HMJK-II, SHM-KX, BCD box
     "hmjk": mat("HMJK panel grey", "#d3d6d5", 0.48),
+    "shmFace": mat("SHM-KX face", "#eef0ee", 0.45),
     "bcd": mat("BCD box grey", "#9ca2a5", 0.5),
     "terminal": mat("Terminal block", "#7d8a83", 0.45),
 }
-NO_BEVEL = {M[k] for k in ("hole", "ink", "white", "lcdText", "bristle", "ledOff", "ledOn")}
+NO_BEVEL = {M[k] for k in ("hole", "ink", "white", "lcdText", "bristle")}
 
 
 # ---------- geometry helpers (all in figure units) ----------
@@ -213,14 +208,14 @@ def cyl(name, x, y, z, r, depth, axis, material, parent=None, verts=32, bevel=0.
     return link(obj, material, parent)
 
 
-def text(name, body, x, y, z, size, material, align="LEFT", parent=None, font=None, res=3):
-    """Flat text standing in the front plane at figure y, baseline at z."""
+def text(name, body, x, y, z, size, material, align="LEFT", parent=None, font=None, res=None):
+    """Flat text standing in the front plane at figure y, baseline at z. Small print gets fewer curve steps."""
     curve = bpy.data.curves.new(name, "FONT")
     curve.body = body
     curve.font = font or VF_SANS
     curve.size = size * U
     curve.align_x = align
-    curve.resolution_u = res
+    curve.resolution_u = res or (2 if size < 1.3 else 3)
     obj = bpy.data.objects.new(name, curve)
     obj.location = (x * U, -y * U, z * U)
     obj.rotation_euler = (math.pi / 2, 0, 0)
@@ -390,8 +385,8 @@ FRONT, SIDE, ZB, ZW, ZTOP = 50, 60, 20, 268, 360
 F = FRONT - 1.6  # front plane of the rack equipment
 U1 = 8.89        # one rack unit
 RACK0 = 54.0     # bottom of U1 (270 mm)
-NU = 22          # rack units (rev B)
-RACKTOP = 250.0  # top of the rack opening (1250 mm); 22U ends at 249.6
+NU = 20          # rack units (rev C)
+RACKTOP = 232.0  # top of the rack opening (1160 mm); 20U ends at 231.8
 
 
 def uz(u):
@@ -429,7 +424,7 @@ for x0 in (-60, 55):
 for x0, x1 in ((-55, -48.5), (48.5, 55)):
     box("rack filler", x0, x1, 48.6, 49.4, RACK0, RACKTOP, M["ral7016"], bevel=0.15)
 box("kick plate", -55, 55, 49.4, 50.2, ZB, ZB + 3.6, M["ral7016"])
-box("fascia", -55, 55, 49, 50, RACKTOP, 255, M["ral7035"])  # 1250-1275, then the tray slot
+box("fascia", -55, 55, 49, 50, RACKTOP, 255, M["ral7035"])  # 1160-1275, then the tray slot
 box("fascia top", -55, 55, 49, 50, 263.4, ZW, M["ral7035"])
 box("rack floor", -55, 55, -48, 50, 51.5, RACK0, M["ral7035"])
 box("rack ceiling", -55, 55, -48, 49, RACKTOP, RACKTOP + 1, M["ral7035"])
@@ -456,11 +451,12 @@ for x0, x1, hx in ((-48.4, -45.0, -46.5), (45.0, 48.4, 46.5)):
 
 
 def rack_panel(name, u0, n, material, chassis=(43, 20), thick=0.6):
-    """19-inch front panel (482.6 wide) on the rails, cage-nut screws, a chassis behind."""
+    """19-inch front panel (482.6 wide) on the rails, cage-nut screws, a chassis behind (None: plate only)."""
     z0, z1 = uz(u0), uz(u0 + n)
     box(name, -48.26, 48.26, F - thick, F, z0 + 0.04, z1 - 0.04, material, bevel=0.22)
-    hw, depth = chassis
-    box(name + " chassis", -hw, hw, F - thick - depth, F - thick, z0 + 0.6, z1 - 0.6, M["panelDark"], bevel=0)
+    if chassis:
+        hw, depth = chassis
+        box(name + " chassis", -hw, hw, F - thick - depth, F - thick, z0 + 0.6, z1 - 0.6, M["panelDark"], bevel=0)
     zs = [z0 + 4.445] if n == 1 else [z0 + 4.445, z1 - 4.445]
     for x in (-46.5, 46.5):
         for z in zs:
@@ -488,148 +484,7 @@ def lamp(x, z, off_mat, on_mat, r=1.25, y=F, lit=False):
     return cyl("lamp lens lit", x, y + 0.82, z, r * 1.03, 0.86, "y", on_mat, verts=20, bevel=0.35)
 
 
-# ===== S1 tap-changer simulator, 3U (U1-3) =====
-z0, z1 = rack_panel("S1 tap-changer simulator", 1, 3, M["panel"])
-for x in (-44, 44):
-    rack_handle(x, z0 + 4, z1 - 4)
-DX, DZ = -27, (z0 + z1) / 2
-cyl("tap dial bezel", DX, F + 0.5, DZ, 11.0, 1.0, "y", M["steel"], verts=64, bevel=0.35)  # dial 110 mm
-cyl("tap dial face", DX, F + 1.05, DZ, 10.0, 0.2, "y", M["face"], verts=64)
-for t in range(1, 18):
-    a = math.radians(-135 + (t - 1) * 270 / 16)
-    L = 1.3 if t % 4 == 1 else 0.75
-    m = box("tap tick", -0.2, 0.2, 0, 0, 0, 1, M["ink"])
-    m.location = ((DX + math.sin(a) * (7.9 + L / 2)) * U, -(F + 1.17) * U, (DZ + math.cos(a) * (7.9 + L / 2)) * U)
-    m.rotation_euler = (0, a, 0)
-    m.dimensions = ((0.32 if L > 1 else 0.2) * U, 0.04 * U, L * U)
-for t in (1, 5, 9, 13, 17):
-    a = math.radians(-135 + (t - 1) * 270 / 16)
-    legend(str(t), DX + math.sin(a) * 5.8, DZ + math.cos(a) * 5.8 - 0.55, 1.5, align="CENTER", y=F + 1.17)
-legend("TAP", DX, DZ - 5.2, 1.1, align="CENTER", y=F + 1.17)
-tap_pivot = empty("tap pointer pivot", DX, F + 1.3, DZ)
-box("tap pointer", -0.4, 0.4, -0.1, 0.1, -2.0, 8.6, M["red"], parent=tap_pivot, bevel=0.12).location = (0, 0, 3.3 * U)
-cyl("tap hub", DX, F + 1.6, DZ, 1.2, 0.6, "y", M["black"], verts=24, bevel=0.2)
-legend("TAP-CHANGER SIMULATOR", -10, z1 - 4.0, 1.6)
-box("ops counter frame", -11, 11, F, F + 0.4, z1 - 12.4, z1 - 6.4, M["black"], bevel=0.25)
-box("ops counter", -10, 10, F + 0.4, F + 0.45, z1 - 11.7, z1 - 7.1, M["lcd"], bevel=0)
-text("ops digits", "01247", 0, F + 0.47, z1 - 10.8, 3.4, M["lcdText"], "CENTER", font=VF_SANS)
-legend("OPERATIONS", -11, z1 - 14.2, 1.0)
-raise_lamp = lamp(17, z1 - 9.4, M["amberOff"], M["amber"])
-lower_lamp = lamp(24, z1 - 9.4, M["amberOff"], M["amber"])
-legend("RAISE", 17, z1 - 14.2, 1.0, align="CENTER")
-legend("LOWER", 24, z1 - 14.2, 1.0, align="CENTER")
-MX, MZ = 36, z1 - 10.6
-cyl("motor window ring", MX, F + 0.3, MZ, 5.2, 0.6, "y", M["black"], verts=40, bevel=0.2)
-cyl("motor window", MX, F + 0.55, MZ, 4.5, 0.1, "y", M["hole"], verts=40)
-rotor = empty("motor rotor", MX, F + 0.7, MZ)
-for i in range(3):
-    b = box("rotor blade", -3.9, 3.9, -0.1, 0.1, -0.42, 0.42, M["steel"], parent=rotor, bevel=0.08)
-    b.location = (0, 0, 0)
-    b.rotation_euler = (0, i * math.pi / 3, 0)
-cyl("rotor hub", 0, 0, 0, 0.9, 0.4, "y", M["steel"], parent=rotor, verts=16, bevel=0.1).location = (0, -0.1 * U, 0)
-legend("MOTOR", MX, MZ - 7.0, 1.0, align="CENTER")
-cyl("crank socket", -4, F + 0.7, z0 + 7.2, 2.2, 1.4, "y", M["steel"], verts=32, bevel=0.35)
-cyl("crank hole", -4, F + 1.42, z0 + 7.2, 0.9, 0.06, "y", M["hole"], verts=6)
-legend("HAND CRANK", -4, z0 + 2.4, 1.0, align="CENTER")
-for i in range(6):
-    box("S1 vent", 5 + i * 2.7, 6.3 + i * 2.7, F - 0.05, F + 0.03, z0 + 2.4, z0 + 10.0, M["hole"], bevel=0)
-
-
-# ===== S2 two HMJK-II OLTC monitors upright on one 8U plate (U4-11) =====
-def hmjk_lcd_texture(name, tag, tap):
-    """57 x 45 mm dark LCD, same look as the HMIET-I screen."""
-    c = Canvas(456, 360, "#08131b")
-    c.paint(np.exp(-((c.xx - 228) ** 2 + (c.yy - 200) ** 2) / (2 * 230 ** 2)), "#10283a", 0.9)
-    c.rrect(0, 312, 456, 360, 0, "#5fd6f2")
-    c.text(f"{tag}  OLTC MONITOR", 14, 326, 25, "#06202c", F_BOLD)
-    c.text("TAP", 18, 274, 23, "#5fd6f2", F_SANS)
-    c.text(tap, 112, 112, 150, "#ffffff", F_BOLD, "center")
-    c.rrect(222, 92, 225, 292, 0, "#2e6f84")
-    for i, (k, v) in enumerate((("MODE", "MANUAL"), ("I MOTOR", "0.0 A"), ("STATUS", "OK"))):
-        y = 256 - i * 62
-        c.text(k, 238, y, 21, "#5fd6f2", F_SANS)
-        c.text(v, 442, y - 30, 24, "#ffffff", F_BOLD, "right")
-    c.rrect(14, 70, 442, 72, 0, "#2e6f84")
-    c.text("IEC 61850   ONLINE", 18, 28, 21, "#5fd6f2", F_SANS)
-    return c.image(name)
-
-
-HMJK_LEDS = (("Power", "green", True), ("Run", "green", True), ("Comm", "green", True),
-             ("Operating", "amber", None), ("Motor I", "green", None), ("Warning", "amber", False),
-             ("Alarm", "red", False))  # None = lit only while the tap changer runs
-
-
-def hmjk(tag, cx, cz):
-    """HMJK-II module, front 130 x 340.4 mm on the plate, body 200 deep behind it."""
-    W, H = 26.0, 68.08
-    x0, zt = cx - W / 2, cz + H / 2
-    P = F + 0.8  # module front face
-    box(f"{tag} HMJK-II body", cx - 12.4, cx + 12.4, F - 0.6 - 40, F - 0.6, cz - 32.2, cz + 32.2, M["alu"], bevel=0.2)
-    box(f"{tag} HMJK-II front", x0, x0 + W, F, P, zt - H, zt, M["hmjk"], bevel=0.3)
-
-    def mx(mm):
-        return x0 + mm / 5
-
-    def mz(mm):
-        return zt - mm / 5
-
-    for x in (mx(7), mx(123)):
-        for z in (mz(7), mz(333.4)):
-            screw(x, z, P, r=0.5, washer=False)
-    # legend "HMJK-II": bold sans plus a serif "II" that reads as the Roman numeral two
-    a = legend("HMJK-", 0, 0, 1.5, font=VF_BOLD, y=P + 0.02)
-    b = legend("II", 0, 0, 1.5, font=VF_ROMAN, y=P + 0.02)
-    wa, wb = a.dimensions.x / U, b.dimensions.x / U
-    left = mx(65) - (wa + 0.15 + wb) / 2
-    a.location = (left * U, -(P + 0.02) * U, mz(22) * U)
-    b.location = ((left + wa + 0.15) * U, -(P + 0.02) * U, mz(22) * U)
-    # LCD 57 x 45 mm in a gloss-black frame
-    lx0, lx1, lz1, lz0 = mx(36.5), mx(93.5), mz(34), mz(79)
-    box("lcd frame", lx0 - 0.8, lx1 + 0.8, P, P + 0.35, lz0 - 0.8, lz1 + 0.8, M["gloss"], bevel=0.2)
-    screens = []
-    for tap in ("09", "10"):
-        img = hmjk_lcd_texture(f"{tag} HMJK LCD {tap}", tag, tap)
-        screens.append(plane_front(f"{tag} HMJK LCD {tap}", lx0, lx1, lz0, lz1, P + 0.36,
-                                   tex_mat(f"{tag} HMJK LCD {tap}", img, 0.15, 1.0)))
-    # status LED column
-    busy = []
-    for i, (label, colour, on) in enumerate(HMJK_LEDS):
-        z = mz(100 + i * 11.5)
-        x = mx(36)
-        cyl("led bezel", x, P + 0.1, z, 0.62, 0.2, "y", M["black"], verts=16, bevel=0.06)
-        off, lit = M[colour + "Off"], M[{"green": "green", "red": "redLed", "amber": "amber"}[colour]]
-        cyl("led lens", x, P + 0.35, z, 0.42, 0.4, "y", lit if on else off, verts=16, bevel=0.15)
-        if on is None:
-            busy.append(cyl("led lens lit", x, P + 0.36, z, 0.44, 0.44, "y", lit, verts=16, bevel=0.15))
-        text("led label", label, mx(44), P + 0.02, z - 0.36, 1.0, M["ink"])
-    # 5-key navigation keypad: diamond of arrows round OK
-    kx, kz = mx(65), mz(222)
-    cyl("keypad ring", kx, P + 0.04, kz, 6.3, 0.08, "y", M["ink"], verts=48)
-    cyl("keypad ring face", kx, P + 0.06, kz, 6.05, 0.08, "y", M["hmjk"], verts=48)
-    for dx, dz, rot in ((0, 3.1, 0), (0, -3.1, 180), (-3.1, 0, -90), (3.1, 0, 90), (0, 0, None)):
-        x, z = kx + dx, kz + dz
-        box("key well", x - 1.2, x + 1.2, P, P + 0.15, z - 1.2, z + 1.2, M["black"], bevel=0.15)
-        box("nav key", x - 1.0, x + 1.0, P + 0.15, P + 0.8, z - 1.0, z + 1.0, M["keyGrey"], bevel=0.3)
-        if rot is None:
-            text("key OK", "OK", x, P + 0.81, z - 0.33, 0.95, M["white"], "CENTER", font=VF_BOLD)
-        else:
-            r = math.radians(rot)
-            tri = [(0, 0.5), (-0.45, -0.3), (0.45, -0.3)]
-            pts = [(x + px * math.cos(r) + pz * math.sin(r), z - px * math.sin(r) + pz * math.cos(r)) for px, pz in tri]
-            prism("arrow", pts, P + 0.79, P + 0.83, M["white"])
-    # unit tag
-    box("unit tag", mx(42), mx(88), P, P + 0.12, mz(296) - 1.9, mz(296) + 1.9, M["label"], bevel=0.08)
-    text("unit tag text", tag, mx(65), P + 0.13, mz(296) - 0.6, 1.6, M["ink"], "CENTER", font=VF_BOLD)
-    return screens, busy
-
-
-z0, z1 = rack_panel("S2 HMJK-II plate", 4, 8, M["ral7016"], chassis=(1, 1))
-JZ = (z0 + z1) / 2
-hmjk_t1 = hmjk("T1", -15, JZ)
-hmjk_t2 = hmjk("T2", 15, JZ)
-
-
-# ===== S3 / S4 HMIET-I automatic voltage regulator, native 19-inch 4U =====
+# ===== slots 1, 2: HMIET-I automatic voltage regulator, native 19-inch 4U =====
 def lcd_texture(name, tag, role, tap):
     """82 x 80 mm dark graphic LCD with cyan/white text."""
     c = Canvas(512, 500, "#08131b")
@@ -720,93 +575,208 @@ def hmiet(u0, tag, role):
     return screens, regulating
 
 
-t1_lcd, t1_reg = hmiet(12, "T1", "MASTER")
-t2_lcd, t2_reg = hmiet(16, "T2", "FOLLOWER")
+t1_lcd, t1_reg = hmiet(1, "T1", "MASTER")    # slot 1, U1-4
+t2_lcd, t2_reg = hmiet(5, "T2", "FOLLOWER")  # slot 2, U5-8
 
 
-# ===== S5 + S6 two HMC-3C tap position indicators on one 3U plate =====
-def hmc_face_texture():
-    """Printed face of the HMC-3C, 187.5 x 91.5 mm (inside the bezel)."""
-    W, H = 1024, 500
-    s = W / 187.5
-    c = Canvas(W, H, "#d9dcdc")
+# ===== slots 3, 4: HMIET-I remote control modules, 19-inch 2U (U9-10 T1, U11-12 T2) =====
+def rotary(x, z, angle, left, right, tag):
+    """Two-position rotary switch (22 mm): black bezel, bar knob, white pointer. angle in degrees, + is clockwise."""
+    cyl("switch bezel", x, F + 0.3, z, 2.6, 0.6, "y", M["black"], verts=32, bevel=0.2)
+    cyl("switch collar", x, F + 0.8, z, 2.0, 0.4, "y", M["black"], verts=32, bevel=0.12)
+    a = math.radians(angle)
 
-    def p(x, y):
-        return x * s, y * s
+    def part(name, w, h, y0, y1, ox, oz, material, bevel=None):
+        o = box(name, -w / 2, w / 2, y0, y1, -h / 2, h / 2, material, bevel=bevel)
+        o.location.x = (x + ox * math.cos(a) + oz * math.sin(a)) * U
+        o.location.z = (z - ox * math.sin(a) + oz * math.cos(a)) * U
+        o.rotation_euler = (0, a, 0)
+        return o
 
-    c.text("HMC-3C \u578b", *p(26, 72.5), 8.0 * s, "#1b1f22", F_CJK)
-    c.text("\u6709\u8f7d\u5206\u63a5\u5f00\u5173\u4f4d\u7f6e\u6307\u793a\u5668", *p(8, 61), 5.6 * s, "#1b1f22", F_CJK)
-    c.text("LOAD TAP POSITION INDICATOR", *p(8, 53.6), 4.4 * s, "#1b1f22", F_SANS)
-    for x, zh, en in ((22, "\u8fdc\u63a7\u6307\u793a\u706f", "TELECONTROL"), (56, "\u5347\u538b", "1-N"),
-                      (90, "\u505c\u6b62", "STOP"), (124, "\u964d\u538b", "N-1"), (164, "\u7535\u6e90", "POWER")):
-        c.text(zh, *p(x, 42.4), 4.2 * s, "#1b1f22", F_CJK, "center")
-        c.text(en, *p(x, 37.8), 3.3 * s, "#1b1f22", F_SANS, "center")
-    c.rrect(*p(6, 18.5), *p(181.5, 18.8), 0, "#9ea4a6")
-    return c.image("HMC-3C face")
-
-
-M["hmcFace"] = tex_mat("HMC-3C face", hmc_face_texture(), 0.5)
-SEGS = {"0": "abcdef", "1": "bc", "9": "abcdfg"}
+    part("switch knob", 1.5, 4.6, F + 1.0, F + 3.0, 0, 0, M["black"], bevel=0.45)
+    part("switch pointer", 0.5, 2.0, F + 3.0, F + 3.08, 0, 1.1, M["white"])
+    legend(left, x - 2.3, z + 2.4, 0.9, align="RIGHT")
+    legend(right, x + 2.3, z + 2.4, 0.9)
+    legend(tag, x, z - 4.6, 1.0, align="CENTER")
 
 
-def seven_seg(cx, cz, digit_set, y0, y1, material, W=2.8, H=4.4, t=0.62, slant=0.1):
-    """Slanted hexagon segments; returns the objects for the segments in digit_set."""
-    pos = {"a": (0, H / 2, True), "b": (W / 2, H / 4, False), "c": (W / 2, -H / 4, False),
-           "d": (0, -H / 2, True), "e": (-W / 2, -H / 4, False), "f": (-W / 2, H / 4, False), "g": (0, 0, True)}
-    out = []
-    for sname in digit_set:
-        ax, az, horiz = pos[sname]
-        hl, ht = ((W if horiz else H / 2) - 0.28) / 2, t / 2
-        base = [(-hl, 0), (-hl + ht, -ht), (hl - ht, -ht), (hl, 0), (hl - ht, ht), (-hl + ht, ht)]
-        pts = [(px, pz) if horiz else (-pz, px) for px, pz in base]
-        pts = [(cx + ax + px + (az + pz) * slant, cz + az + pz) for px, pz in pts]
-        out.append(prism("segment", pts, y0, y1, material))
-    return out
+def push(x, z, cap, r=2.0):
+    """22 mm push button with a domed (mushroom) cap."""
+    cyl("button bezel", x, F + 0.25, z, 2.6, 0.5, "y", M["steel"], verts=32, bevel=0.18)
+    cyl("button collar", x, F + 0.8, z, 2.1, 0.6, "y", M["black"], verts=32, bevel=0.15)
+    cyl("button cap", x, F + 1.65, z, r, 1.1, "y", cap, verts=32, bevel=0.5)
 
 
-def hmc(tag, cx, cz):
-    P = F
-    box(f"{tag} HMC-3C bezel", cx - 19.2, cx + 19.2, P, P + 1.0, cz - 9.6, cz + 9.6, M["hmcBezel"], bevel=0.3)
-    plane_front(f"{tag} HMC-3C face", cx - 18.75, cx + 18.75, cz - 9.15, cz + 9.15, P + 1.005, M["hmcFace"])
-
-    def fx(mm):
-        return cx - 18.75 + mm / 5
-
-    def fz(mm):
-        return cz - 9.15 + mm / 5
-
-    Y = P + 1.0
-    for x in (fx(4.0), fx(183.5)):
-        screw(x, fz(46), Y, r=0.42, washer=False)
-    # LED window and 7-segment digits
-    box("led window frame", fx(111), fx(173), Y, Y + 0.12, fz(54), fz(86), M["black"], bevel=0.1)
-    box("led window", fx(112), fx(172), Y + 0.12, Y + 0.24, fz(55), fz(85), M["ledWin"], bevel=0.06)
-    dz = fz(70)
-    digits = {}
-    for x in (fx(132), fx(153)):
-        seven_seg(x, dz, "abcdefg", Y + 0.24, Y + 0.25, M["ledOff"])
-    for value in ("09", "10"):
-        segs = seven_seg(fx(132), dz, SEGS[value[0]], Y + 0.24, Y + 0.28, M["ledOn"])
-        segs += seven_seg(fx(153), dz, SEGS[value[1]], Y + 0.24, Y + 0.28, M["ledOn"])
-        digits[value] = join(segs, f"{tag} HMC digits {value}")
-    # lamp keys
-    lit = {}
-    for x, kind in ((22, "tele"), (56, "raise"), (90, "stop"), (124, "lower"), (164, "power")):
-        kx, kz = fx(x), fz(28)
-        box("key collar", kx - 1.5, kx + 1.5, Y, Y + 0.25, kz - 1.5, kz + 1.5, M["keyCollar"], bevel=0.12)
-        m = {"tele": M["hmcGreenLit"], "power": M["hmcRedLit"]}.get(kind, M["hmcGreen"])
-        box("lamp key", kx - 1.25, kx + 1.25, Y + 0.25, Y + 1.0, kz - 1.25, kz + 1.25, m, bevel=0.32)
-        if kind in ("raise", "lower"):
-            lit[kind] = box("lamp key lit", kx - 1.27, kx + 1.27, Y + 0.25, Y + 1.03, kz - 1.27, kz + 1.27, M["hmcGreenLit"], bevel=0.32)
-    return digits, lit
+def remote(u0, tag):
+    z0, z1 = rack_panel(f"{tag} remote control module", u0, 2, M["devGrey"], chassis=(42.6, 30))
+    cz = (z0 + z1) / 2
+    z = cz + 0.4
+    legend(f"{tag}  REMOTE CONTROL", -42.4, cz + 5.6, 1.2, font=VF_BOLD)
+    for x, label, on in ((-39.5, "POWER", M["amber"]), (-32.5, "RUN", M["green"])):
+        lamp(x, z, None, on, r=1.9, lit=True)
+        legend(label, x, z - 4.6, 1.0, align="CENTER")
+    # demo setting: Remote, Manual, Parallel (raise / lower work only on Remote + Manual)
+    for x, ang, left, right, sa in ((-21, -45, "REM", "LOC", "SA1"), (-10, 45, "AUTO", "MAN", "SA2"),
+                                    (1, -45, "PAR", "IND", "SA3")):
+        rotary(x, z, ang, left, right, sa)
+    for x, cap, r, label in ((15, M["keyGreen"], 2.0, "S1  1-N"), (24.5, M["keyGreen"], 2.0, "S2  N-1"),
+                             (34.5, M["stopRed"], 2.6, "S3  STOP")):
+        push(x, z, cap, r)
+        legend(label, x, z - 4.6, 1.0, align="CENTER")
 
 
-z0, z1 = rack_panel("S5+S6 HMC plate", 20, 3, M["ral7016"])
-HZ = (z0 + z1) / 2 + 0.8
-hmc_t1, hmc_t1_keys = hmc("T1", -23.2, HZ)
-hmc_t2, hmc_t2_keys = hmc("T2", 23.2, HZ)
-for tag, x in (("T1  TAP POSITION", -23.2), ("T2  TAP POSITION", 23.2)):
-    text("plate label", tag, x, F + 0.02, z0 + 1.1, 1.2, M["white"], "CENTER", font=VF_BOLD)
+remote(9, "T1")
+remote(11, "T2")
+
+# ===== U13-14 spare: blank panel =====
+rack_panel("spare blank panel", 13, 2, M["ral7016"], chassis=None)
+
+LCD_BG, LCD_FG, LCD_HI, LCD_RULE = "#0f2a33", "#9ef0c5", "#dcffec", "#3d7f74"
+
+
+# ===== slot 5: HMJK-II OLTC monitor, landscape, on a 3U plate (U15-17) =====
+def hmjk_lcd_texture(name, tag, tap):
+    """110 x 60 mm LCD, dark with green text."""
+    c = Canvas(660, 360, LCD_BG)
+    c.paint(np.exp(-((c.xx - 330) ** 2 + (c.yy - 200) ** 2) / (2 * 300 ** 2)), "#16404a", 0.8)
+    c.rrect(0, 312, 660, 360, 0, LCD_FG)
+    c.text(f"{tag}  OLTC MONITOR", 16, 326, 26, LCD_BG, F_BOLD)
+    c.text("HMJK-II", 644, 326, 26, LCD_BG, F_BOLD, "right")
+    c.text("TAP", 20, 270, 24, LCD_FG)
+    c.text(tap, 150, 74, 170, LCD_HI, F_BOLD, "center")
+    c.rrect(300, 64, 303, 290, 0, LCD_RULE)
+    for i, (k, v) in enumerate((("MODE", "MANUAL"), ("I MOTOR", "0.0 A"), ("STATUS", "OK"))):
+        y = 266 - i * 72
+        c.text(k, 322, y, 22, LCD_FG)
+        c.text(v, 640, y - 32, 28, LCD_HI, F_BOLD, "right")
+    c.rrect(16, 48, 644, 50, 0, LCD_RULE)
+    c.text("BCD  ONLINE", 20, 14, 22, LCD_FG)
+    c.text("4-20 mA", 640, 14, 22, LCD_FG, F_SANS, "right")
+    return c.image(name)
+
+
+def hmjk(tag, cx, cz):
+    """HMJK-II, front 340.4 W x 130 H mm on the plate, body 200 deep behind it."""
+    W, H = 68.08, 26.0
+    x0, zt = cx - W / 2, cz + H / 2
+    P = F + 0.8  # module front face
+    box(f"{tag} HMJK-II body", cx - 33, cx + 33, F - 0.6 - 40, F - 0.6, cz - 12.2, cz + 12.2, M["alu"], bevel=0.2)
+    box(f"{tag} HMJK-II front", x0, x0 + W, F, P, zt - H, zt, M["hmjk"], bevel=0.3)
+
+    def mx(mm):
+        return x0 + mm / 5
+
+    def mz(mm):
+        return zt - mm / 5
+
+    for x in (mx(6), mx(334.4)):
+        for z in (mz(6), mz(124)):
+            screw(x, z, P, r=0.45, washer=False)
+    # legend "HMJK-II": bold sans plus a serif "II" that reads as the Roman numeral two
+    a = legend("HMJK-", 0, 0, 1.5, font=VF_BOLD, y=P + 0.02)
+    b = legend("II", 0, 0, 1.5, font=VF_ROMAN, y=P + 0.02)
+    a.location = (mx(14) * U, -(P + 0.02) * U, mz(19) * U)
+    b.location = ((mx(14) + a.dimensions.x / U + 0.15) * U, -(P + 0.02) * U, mz(19) * U)
+    # status LEDs
+    for i, (label, colour, on) in enumerate((("Run", "green", True), ("Warning", "amber", False), ("Alarm", "red", False))):
+        x, z = mx(22), mz(48 + i * 18)
+        cyl("led bezel", x, P + 0.1, z, 0.62, 0.2, "y", M["black"], verts=16, bevel=0.06)
+        lit = M[{"green": "green", "red": "redLed", "amber": "amber"}[colour]]
+        cyl("led lens", x, P + 0.35, z, 0.42, 0.4, "y", lit if on else M[colour + "Off"], verts=16, bevel=0.15)
+        text("led label", label, mx(29), P + 0.02, z - 0.36, 1.0, M["ink"])
+    # LCD 110 x 60 mm, centre-left, in a gloss-black frame
+    lx0, lx1, lz1, lz0 = mx(72), mx(182), mz(30), mz(90)
+    box("lcd frame", lx0 - 0.8, lx1 + 0.8, P, P + 0.35, lz0 - 0.8, lz1 + 0.8, M["gloss"], bevel=0.2)
+    screens = []
+    for tap in ("09", "10"):
+        img = hmjk_lcd_texture(f"{tag} HMJK LCD {tap}", tag, tap)
+        screens.append(plane_front(f"{tag} HMJK LCD {tap}", lx0, lx1, lz0, lz1, P + 0.36,
+                                   tex_mat(f"{tag} HMJK LCD {tap}", img, 0.15, 1.0)))
+    # keypad: diamond of arrows round OK, ESC and RST beside it
+    kx, kz = mx(240), mz(62)
+    cyl("keypad ring", kx, P + 0.04, kz, 6.3, 0.08, "y", M["ink"], verts=48)
+    cyl("keypad ring face", kx, P + 0.06, kz, 6.05, 0.08, "y", M["hmjk"], verts=48)
+    for dx, dz, rot in ((0, 3.1, 0), (0, -3.1, 180), (-3.1, 0, -90), (3.1, 0, 90), (0, 0, None)):
+        x, z = kx + dx, kz + dz
+        box("key well", x - 1.2, x + 1.2, P, P + 0.15, z - 1.2, z + 1.2, M["black"], bevel=0.15)
+        box("nav key", x - 1.0, x + 1.0, P + 0.15, P + 0.8, z - 1.0, z + 1.0, M["keyGrey"], bevel=0.3)
+        if rot is None:
+            text("key OK", "OK", x, P + 0.81, z - 0.33, 0.95, M["white"], "CENTER", font=VF_BOLD)
+        else:
+            r = math.radians(rot)
+            tri = [(0, 0.5), (-0.45, -0.3), (0.45, -0.3)]
+            pts = [(x + px * math.cos(r) + pz * math.sin(r), z - px * math.sin(r) + pz * math.cos(r)) for px, pz in tri]
+            prism("arrow", pts, P + 0.79, P + 0.83, M["white"])
+    for label, ymm in (("ESC", 48), ("RST", 76)):
+        x, z = mx(298), mz(ymm)
+        box("key well", x - 1.4, x + 1.4, P, P + 0.15, z - 1.2, z + 1.2, M["black"], bevel=0.15)
+        box("func key", x - 1.2, x + 1.2, P + 0.15, P + 0.8, z - 1.0, z + 1.0, M["keyGrey"], bevel=0.3)
+        text("key " + label, label, x, P + 0.81, z - 0.3, 0.85, M["white"], "CENTER", font=VF_BOLD)
+    # unit tag under the LCD
+    box("unit tag", mx(104), mx(150), P, P + 0.12, mz(110) - 1.9, mz(110) + 1.9, M["label"], bevel=0.08)
+    text("unit tag text", tag, mx(127), P + 0.13, mz(110) - 0.6, 1.6, M["ink"], "CENTER", font=VF_BOLD)
+    return screens
+
+
+z0, z1 = rack_panel("HMJK-II plate", 15, 3, M["ral7016"], chassis=None)
+hmjk_lcd = hmjk("T1", 0, (z0 + z1) / 2)
+
+
+# ===== slot 6: SHM-KX controller in a 3U plate (U18-20), cutout 210 x 96 =====
+def shm_lcd_texture(name, tag, tap):
+    """120 x 70 mm LCD with the tap number big."""
+    c = Canvas(600, 350, LCD_BG)
+    c.paint(np.exp(-((c.xx - 300) ** 2 + (c.yy - 190) ** 2) / (2 * 280 ** 2)), "#16404a", 0.8)
+    c.rrect(0, 304, 600, 350, 0, LCD_FG)
+    c.text(f"SHM-KX  {tag}", 16, 318, 26, LCD_BG, F_BOLD)
+    c.text("TAP POSITION", 584, 318, 24, LCD_BG, F_BOLD, "right")
+    c.text(tap, 300, 76, 220, LCD_HI, F_BOLD, "center")
+    c.rrect(16, 56, 584, 58, 0, LCD_RULE)
+    c.text("REMOTE", 20, 18, 24, LCD_FG)
+    c.text("MANUAL", 300, 18, 24, LCD_FG, F_SANS, "center")
+    c.text("1 - 17", 580, 18, 24, LCD_FG, F_SANS, "right")
+    return c.image(name)
+
+
+def shmkx(tag, cx, cz):
+    """SHM-KX: flange 243 x 95, raised front 226 wide, 7 mm in front of the plate and 162 behind it."""
+    box(f"{tag} SHM-KX body", cx - 20.8, cx + 20.8, F - 0.6 - 32.4, F - 0.6, cz - 9.0, cz + 9.0, M["alu"], bevel=0.2)
+    box(f"{tag} SHM-KX flange", cx - 24.3, cx + 24.3, F, F + 0.4, cz - 9.5, cz + 9.5, M["hmjk"], bevel=0.25)
+    P = F + 1.4  # front face
+    box(f"{tag} SHM-KX front", cx - 22.6, cx + 22.6, F + 0.4, P, cz - 8.5, cz + 8.5, M["shmFace"], bevel=0.4)
+    for x in (cx - 23.45, cx + 23.45):
+        for z in (cz - 6.5, cz + 6.5):
+            screw(x, z, F + 0.4, r=0.38, washer=False)
+
+    def sx(mm):
+        return cx - 22.6 + mm / 5
+
+    def sz(mm):
+        return cz + 8.5 - mm / 5
+
+    # LCD 120 x 70 mm in the middle
+    lx0, lx1, lz1, lz0 = sx(53), sx(173), sz(7.5), sz(77.5)
+    box("lcd frame", lx0 - 0.6, lx1 + 0.6, P, P + 0.3, lz0 - 0.6, lz1 + 0.6, M["gloss"], bevel=0.15)
+    screens = []
+    for tap in ("09", "10"):
+        img = shm_lcd_texture(f"{tag} SHM-KX LCD {tap}", tag, tap)
+        screens.append(plane_front(f"{tag} SHM-KX LCD {tap}", lx0, lx1, lz0, lz1, P + 0.31,
+                                   tex_mat(f"{tag} SHM-KX LCD {tap}", img, 0.15, 1.0)))
+    # five keys left, five right
+    left = (("LOC/REM", "keyGrey"), ("AUTO/MAN", "keyGrey"), ("1-N", "keyGreen"), ("STOP", "stopRed"), ("N-1", "keyGreen"))
+    right = (("MENU", "keyGrey"), ("UP", "keyGrey"), ("DOWN", "keyGrey"), ("ENTER", "keyGrey"), ("ESC", "keyGrey"))
+    for col, xmm, lxmm, align in ((left, 10, 17, "LEFT"), (right, 216, 209, "RIGHT")):
+        for i, (label, m) in enumerate(col):
+            x, z = sx(xmm), sz(10.5 + i * 16)
+            box("key well", x - 1.05, x + 1.05, P, P + 0.12, z - 1.05, z + 1.05, M["black"], bevel=0.12)
+            box("shm key", x - 0.9, x + 0.9, P + 0.12, P + 0.6, z - 0.9, z + 0.9, M[m], bevel=0.25)
+            text("shm key label", label, sx(lxmm), P + 0.02, z - 0.3, 0.8, M["ink"], align)
+    return screens
+
+
+z0, z1 = rack_panel("SHM-KX plate", 18, 3, M["ral7016"], chassis=None)
+shm_lcd = shmkx("T1", 0, (z0 + z1) / 2)
+
 
 # ===== back panel: brush-strip cable entry plate, 400 x 45, 300-345 high =====
 BY = -50.0  # outer face of the back panel (figure y)
@@ -974,20 +944,12 @@ for x, y in ((-61.5, -51), (58.5, -51), (-61.5, 49.5), (58.5, 49.5)):
     box("corner bumper", x, x + 3, y, y + 3, ZW - 0.6, ZW + 3.6, M["rubber"], bevel=0.6)
 
 # ---------- animation: one 12 s loop ----------
-# rev B, no grid source: RAISE on the T1 master at 4 s, the T1 tap changer runs one step (simulator
-# dial + rotor), the T2 follower copies 0.6 s later; LOWER at 9.4 s brings both back to tap 9.
+# rev C, displays only: RAISE on the T1 master at 4 s (Regulating LED on, tap 9 -> 10 on the T1 AVR,
+# HMJK-II, SHM-KX and screen), the T2 follower copies 0.6 s later; LOWER at 9.4 s brings both back to 9.
 
 
 def at(sec):
     return int(round(sec * FPS)) + 1
-
-
-for f, t in ((0, 9), (4, 9), (5.3, 10), (9.4, 10), (10.7, 9), (12, 9)):
-    tap_pivot.rotation_euler = (0, math.radians(-135 + (t - 1) * 270 / 16), 0)
-    tap_pivot.keyframe_insert("rotation_euler", frame=at(f))
-for f, spin in ((0, 0), (4, 0), (5.3, 6 * math.pi), (9.4, 6 * math.pi), (10.7, 0), (12, 0)):
-    rotor.rotation_euler = (0, spin, 0)
-    rotor.keyframe_insert("rotation_euler", frame=at(f))
 
 
 def toggle(obj, spans):
@@ -1009,20 +971,12 @@ def tap_story(on09, on10, lag):
     toggle(on09, [(0, 5.3 + lag), (10.7 + lag, 13)])
 
 
-toggle(raise_lamp, [(4, 5.3)])
-toggle(lower_lamp, [(9.4, 10.7)])
-for lag, lcd, reg, digs, keys, hmi, mon in (
-        (0, t1_lcd, t1_reg, hmc_t1, hmc_t1_keys, hmi_taps["T1"], hmjk_t1),
-        (0.6, t2_lcd, t2_reg, hmc_t2, hmc_t2_keys, hmi_taps["T2"], hmjk_t2)):
+for lag, lcd, reg, hmi in ((0, t1_lcd, t1_reg, hmi_taps["T1"]), (0.6, t2_lcd, t2_reg, hmi_taps["T2"])):
     tap_story(lcd[0], lcd[1], lag)
-    tap_story(mon[0][0], mon[0][1], lag)
-    for led in mon[1]:  # HMJK-II logs the operation and the motor current
-        toggle(led, [(4 + lag, 5.3 + lag), (9.4 + lag, 10.7 + lag)])
-    tap_story(digs["09"], digs["10"], lag)
     tap_story(hmi["09"], hmi["10"], lag)
     toggle(reg, [(4 + lag, 5.3 + lag), (9.4 + lag, 10.7 + lag)])
-    toggle(keys["raise"], [(4 + lag, 5.3 + lag)])
-    toggle(keys["lower"], [(9.4 + lag, 10.7 + lag)])
+tap_story(hmjk_lcd[0], hmjk_lcd[1], 0)  # HMJK-II and SHM-KX both watch T1
+tap_story(shm_lcd[0], shm_lcd[1], 0)
 for f, dy in ((0, 0), (1.5, 0), (2.5, 1), (9.5, 1), (10.5, 0), (12, 0)):
     tray.location = (0, (1 - dy) * 30 * U, 0)  # in = pushed 150 mm back
     tray.keyframe_insert("location", frame=at(f))

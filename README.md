@@ -1,15 +1,15 @@
 # AVR Demo Cabinet
 
-A concept for a mobile 19″ cabinet (rev B, 22U) with two HMIET-I AVRs (master and follower), two HMJK-II OLTC monitors, two HMC-3C tap position indicators, a tap-changer simulator, a BCD box and a screen, for live demonstrations of Huaming tap-changer control and monitoring. Two SHM-D motor drives sit outside, each with its own junction box.
+A mobile 19″ demo cabinet (rev C, 20U) built to Gerrick's sketch "Control Panel for AVR": two HMIET-I AVRs (systems 1, 2), their two remote control modules (3, 4), a spare 2U, an HMJK-II OLTC monitor (5) and an SHM-KX controller (6), with a screen, keyboard tray, cable locker and a BCD box inside. The SHM-D motor drives and their junction boxes sit outside.
 
 **Live site:** https://erict16.github.io/avr-demo-cabinet/
 
-- `SPEC.md` is the shared spec: sizes, the 22U rack layout, the real device fronts and the rev B changes.
-- `blender/cabinet.py` builds the 3D model in Blender and exports `models/cabinet.glb` (web, animated), `models/cabinet.usdz` (iPhone AR) and `models/poster.webp`:
+- `SPEC.md` is the shared spec: sizes, the rack layout, the device fronts and what is still TBC.
+- `drawing.mjs` draws the cabinet front once and uses it twice: the three A4 sheets (general arrangement 1:12, rack front 1:6, system layout 1:15) and the live front on the website (`cabinetFront()`).
+- `demo.js` runs the live demo: the remote control module switches and buttons drive the AVRs, and the HMJK-II, SHM-KX and screen follow.
+- `pdf.mjs` writes `drawings/sheet-N.svg` and prints `drawings/avr-demo-cabinet-rev-C.pdf` with headless Edge or Chrome.
+- `build.mjs` writes `index.html`: `node pdf.mjs && node build.mjs`
+- `blender/cabinet.py` builds the 3D model and exports `models/cabinet.glb`, `models/cabinet.usdz` and `models/poster.webp`:
   `blender -b --factory-startup -P blender/cabinet.py -- models/cabinet.glb models/poster.webp`
-- `figure.mjs` draws the live isometric with the Anatomy kit in `kit/`; `live.js` runs the manual raise/lower demo in the page.
-- `drawing.mjs` draws the three A4 sheets (general arrangement 1:12, rack front 1:6, system layout 1:15).
-- `pdf.mjs` writes `drawings/sheet-N.svg` and prints `drawings/avr-demo-cabinet-rev-B.pdf` with headless Edge or Chrome (`node pdf.mjs`).
-- `build.mjs` writes `index.html` (`node pdf.mjs && node build.mjs`).
 
-Sizes are read off a hand sketch and Huaming device drawings. The junction box and BCD box sizes are assumed until confirmed.
+Sizes come from the sketch, Eric's photo of the equipment and Huaming device drawings. The remote control module depth, the junction box and BCD box sizes and the number of SHM-D are TBC.

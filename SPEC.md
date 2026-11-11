@@ -1,72 +1,73 @@
-# AVR demo cabinet — shared build spec
+# AVR demo cabinet — shared build spec, rev C
 
-One source of truth for the 3D model, the 2D isometric figure, the dimensioned drawing and the website. All heights are mm above the floor unless noted.
+One source of truth for the 3D model, the drawings and the website. All heights are mm above the floor unless noted.
+
+Rev C (11 Nov 2026) follows Gerrick's sketch "Control Panel for AVR" (2 Nov 2026) and Eric's photo of the real equipment. Removed from rev B: the tap-changer simulator, the two HMC-3C indicators and the second HMJK-II (none of them are in the sketch or the photo).
+
+## Equipment in the cabinet (from the photo)
+
+| Sketch | Device | Qty | Front W × H | Depth |
+|---|---|---|---|---|
+| System 1, 2 | HMIET-I automatic voltage regulator (T1, T2) | 2 | 482.8 × 177 (4U) | 267 |
+| System 3, 4 | HMIET-I remote control module (T1, T2) | 2 | 482.6 × 88.1 (2U) | 150 assumed, **TBC** |
+| System 5 | HMJK-II OLTC monitor | 1 | 340.4 × 130 | 200 |
+| System 6 | SHM-KX controller | 1 | 243 × 95 (cutout 210 × 96) | 169 |
 
 ## Cabinet
-- Body 600 W × 500 D × 1700 H, standing on 4 × 3″ (Ø76) lockable castors, castor height 100 → overall 1800.
-- Lower cabinet 100–1340: sheet-steel side panels in RAL 7035 light grey, front corner uprights and top frame in RAL 7016 anthracite, kick plate 100–118, cable locker drawer 120–255 (540 wide, pull handle, lock).
-- Rack opening 270–1250, 19″ rails (EIA-310 square holes, 3 per U), **22U** (rev B, Nov 2026: was 20U to 1160; the fascia vent slots are gone, the side louvres do the venting).
-- Fascia 1250–1340 with the keyboard tray slot only. Keyboard tray top ≈1295, 440 wide, pulls out 200 on two-stage slides.
-- Worktop 1340–1355. Upper open frame: four 15×15 posts to 1800, top frame bars 1780–1800, perforated back panel. Monitor ≈22″ (460 × 280, bottom 1390, top 1670) on a desk stand, face 100 mm behind the cabinet front.
-- Right side: cable duct 65 × 18 (75–140 back from the front, 130–1180 high), 13 A power strip (230–450 back, 150–195 high) with lead to a 13 A plug, intake fan Ø120 (380 back, 560 high), exhaust louvres 1180–1300 high, push handle at 1210, earth stud at 150, side panel seam at 750.
+- Body 600 W × 500 D × 1700 H, on 4 × 3″ (Ø76) lockable castors, castor height 100 → overall 1800.
+- Lower cabinet 100–1340: sheet-steel side panels RAL 7035 light grey, front uprights and top frame RAL 7016 anthracite, kick plate 100–118, cable locker drawer 120–255 (540 wide, pull handle, lock), 13 A power extension inside the locker.
+- Rack opening 270–1160, 19″ rails, **20U**.
+- Fascia 1160–1340 with the keyboard tray slot. Keyboard tray top ≈1295, 440 wide, pulls out 200 on two-stage slides.
+- Worktop 1340–1355. Upper open frame: four 15×15 posts to 1800, top frame 1780–1800, perforated back panel. Monitor ≈22″ (460 × 280, 1390–1670) on a desk stand, 100 behind the front.
+- Right side: cable box 65 × 18 from the worktop down to the cable locker (130–1180 high), intake fan Ø120, exhaust louvres 1180–1300, push handle at 1210, earth stud at 150. Cable entry: brush plate on the back panel at 300–345.
 
-## Rack layout, rev B (bottom to top), 1U = 44.45 mm, U1 starts at 270.5
-No grid source (removed, rev B): the AVRs get no moving voltage, so the demo is manual raise/lower with master–follower, the tap indicators and the OLTC monitors. Cable entry moved from the front U20 brush panel to a brush plate on the back panel.
+## Rack layout, bottom to top (1U = 44.45, U1 starts at 270.5)
 
-| Slot | U | mm from floor | Unit | Front |
-|---|---|---|---|---|
-| S1 | U1–3 (3U) | 272–403 | Tap-changer simulator | Light-grey 19″ panel, now 3U: tap dial Ø110 (1–17), operations counter, RAISE/LOWER lamps, motor window with a rotor, hand-crank socket |
-| S2 | U4–11 (8U) | 405–758 | **HMJK-II OLTC monitor ×2, T1 and T2** | one 19″ 8U plate (482.6 × 355.6) holding two HMJK-II modules upright, centres 75 left and right of the cabinet centre |
-| S3 | U12–15 (4U) | 760–937 | **HMIET-I AVR, T1 master** | native 19″ 4U unit, centre 848.4 |
-| S4 | U16–19 (4U) | 938–1115 | **HMIET-I AVR, T2 follower** | same, centre 1026.2 |
-| S5 + S6 | U20–22 (3U) | 1116–1248 | **HMC-3C tap position indicators, T1 and T2** | one 19″ 3U plate, two HMC-3C side by side, centre 1181.7 |
+Same order as Gerrick's sketch, System 1 at the bottom.
 
-### HMJK-II OLTC monitor (from drawings HMJK-Ⅱ-20231214 and "HMJK智能装置")
-- Module front **130 W × 340.4 H** (body 322.3 H), **200 deep**. Upright: LCD near the top, LED column, keypad below; terminal blocks XA–XG at the back.
-- Inputs used here: BCD tap position (XF 8–16), motor voltage and motor current from the MDU (XE), 4–20 mA tap position (XC). Outputs: device status, yellow warning, red alarm. IEC 61850 on LC fibre, RS485 Modbus.
-- Supply AC/DC 85–265 V.
-- (The wall-mounted HMJK-II box, 600 × 720 outside the ears, cabinet 550 × 320 × 750, is not used: the modules go in the rack.)
+| Slot | U | mm from floor | Unit |
+|---|---|---|---|
+| 1 | U1–4 (4U) | 272–447 | HMIET-I AVR, T1 (master) |
+| 2 | U5–8 (4U) | 449–625 | HMIET-I AVR, T2 (follower) |
+| 3 | U9–10 (2U) | 627–714 | Remote control module, T1 |
+| 4 | U11–12 (2U) | 716–803 | Remote control module, T2 |
+| — | U13–14 (2U) | 805–892 | Spare, blank panel |
+| 5 | U15–17 (3U) | 894–1025 | HMJK-II OLTC monitor on a 3U plate, centred |
+| 6 | U18–20 (3U) | 1027–1158 | SHM-KX controller in a 3U plate (cutout 210 × 96), centred |
 
-### BCD box (inside, one)
-- One box inside the cabinet, on a DIN rail on the back panel, centred, 1000–1120 above the floor (clear of the side fan), 200 W × 120 H × 75 D. **Size TBC.**
-- Takes the BCD tap position from both junction boxes and shares it to the AVRs, the HMC-3Cs and the HMJK-IIs.
+**Systems 5 and 6 are stacked, not side by side.** The sketch shows them next to each other, but 340.4 + 243 = 583 mm, wider than the 450 mm between 19″ rails (and the 560 mm inside the cabinet). Stacking on two 3U plates keeps the 20U rack.
 
-### Outside the cabinet: SHM-D motor drives and junction boxes
-- 2 × SHM-D motor drive unit (T1, T2): 750 W × 816 H × 359 D (manual HM0.460.1381, Appendix 1).
-- **One junction box per SHM-D, outside**, about 1/5 of the SHM-D front: **300 W × 400 H × 150 D** (size assumed, TBC).
-- Cables, junction box to cabinet (rear brush plate): BCD 10 × 1.5, motor voltage + current 8 × 1.5 (4 × 1.5 each, per the HMJK-II drawing), raise/lower/status control (cores TBC), supply 3 × 2.5.
+## Device fronts
 
-**S3/S4 AVR choice:** The maker drawing HMIET-I-E110 shows the HMIET-I is a native 19″ rack AVR, so S3/S4 use it, no adapter plate. The SHM-K/SHM-KX below stays documented as the panel-mount alternative.
+### HMIET-I AVR (4U, drawing HMIET-I-E110)
+- Front 482.8 × 177, body 426.4 W × 267 D. Light grey panel.
+- Left: column of 10 LEDs (Run, Fault, Remote, Auto, Parallel, U/I Block, Tap Block, AVR Failed, Regulating, Par.Block). LCD ≈ 82 × 80 at 115–197 from the left. Keypad: four arrows round OK, ESC and RST beside it.
 
-### HMIET-I automatic voltage regulator (front face, 19″ 4U) — from drawing HMIET-I-E110
-- Front panel **482.8 W × 177 H mm** (4U), body behind 426.4 W × 267 D. Mounting ears with slots, hole centres 465 apart, slot 6.5 wide, 10.5 from the panel edge, 101.6 between the two slots on each ear.
-- Panel colour: light grey/silver anodised (`#c9cdd0`), dark text.
-- Text top-right: "HMIET-Ⅰ AUTOMATIC VOLTAGE REGULATOR" (small caps line).
-- Left: a **column of 10 status LEDs** at ≈36 mm from the left edge, from top: Run, Fault, Remote, Auto, Parallel, U/I Block, Tap Block, AVR Failed, Regulating, Par.Block (green for Run/Auto/Remote/Parallel, red for Fault/Failed/Block ones, amber Regulating), each with its label to the right.
-- **LCD** ≈ 82 W × 80 H mm, from ≈115 to 197 mm from the left, 10 to 91 mm from the top; dark display with white/cyan text (show voltage, tap, mode).
-- **Navigation keypad** right of centre (≈295–367 mm from the left, 36–79 mm from the top): a diamond of four arrow keys around a centre OK key, with **ESC** and **RST** keys beside it.
-- Rear (only if visible): modular cards with terminal blocks XA–XH, two IEC 61850 LC fibre TX/RX ports, RS232/RS485, power AC/DC 85–265 V.
-- Functions: auto/manual, local/remote, master/follower parallel (CAN link to the second unit), BCD tap input, >U <U >I blocking, raise/lower/stop outputs, IEC 61850.
+### HMIET-I remote control module (2U, from the photo)
+- 19″ panel, about 2U. From the left: POWER and RUN lamps; three two-position rotary switches SA1 Remote/Local, SA2 Auto/Manual, SA3 Parallel/Independent; push buttons S1 1-N (green), S2 N-1 (green), S3 Stop (red).
+- Wired to the AVR's remote inputs: raise, lower, stop, remote/local, auto/manual, parallel/independent.
 
-## Real devices (copy these looks)
+### HMJK-II OLTC monitor
+- Landscape 340.4 W × 130 H, 200 deep. LCD centre-left, Run / Warning / Alarm LEDs, keypad with arrows, ESC and RST.
+- Inputs: BCD tap position, motor voltage and current from the MDU, 4–20 mA tap position.
 
-### SHM-K AVR controller (front face, panel-mount)
-Source: product photo (DirectIndustry "Controller module SHM-K") and SHM-KX unit photos.
-- Front bezel ≈ 300 W × 145 H mm (about 2.1 : 1), vivid **blue-violet** `#4f3ad8`, four corner screws.
-- White text "SHM-K" top-left.
-- Colour **touchscreen** ≈ 150 × 90 mm, left-centre: sky-blue gradient background (`#bfe6ff` top → `#e9f7ff` horizon → `#2a7fd4` lower band), the **tap position number very large in dark navy** `#1a237e` in the centre, small green and amber icons in the bottom corners.
-- Right column: three square keys ≈ 18 mm, stacked: **green "1→N"** (raise), **red "STOP"**, **green "N→1"** (lower), with a small "Reset" text beside the lowest one.
-- Body behind the bezel: brushed-aluminium box (≈ 270 × 190 mm label face, ≈ 120 mm deep) with green pluggable terminal blocks, RJ45 TCP/IP, RS485 and black fibre-optic RX/TX ports; a black mounting flange. Modes: manual/automatic, parallel master, parallel follower. IEC 61850 on the network port.
+### SHM-KX controller (SHM-D manual, Appendix 6)
+- Flange 243 × 95, front 226, depth 162 + 7 = 169. Panel cutout 210 × 96.
+- Left column of five keys (Local/Remote, Auto/Manual, 1-N, Stop, N-1), LCD in the middle with the tap number, five keys on the right.
 
-### HMC-3C tap position indicator (front face, DIN 192 × 96 mm)
-Source: product photo (DirectIndustry "Position indicator HMC-3C").
-- Light-grey panel `#d9dcdc`, thin darker bezel.
-- Top-left: "HMC-3C 型", Chinese line 有载分接开关位置指示器, English line "LOAD TAP POSITION INDICATOR".
-- Top-right: **red 2-digit 7-segment LED** (`#ff2a2a` on a dark-red window) showing the tap.
-- Bottom row of square keys: green lamp "TELECONTROL", green "1-N", green "STOP", green "N-1", **red "POWER"**.
+## Inside: BCD box
+- One box on a DIN rail on the back panel, 1000–1120 high, 200 × 120 × 75. **Size TBC.**
+- Takes the BCD tap position from the junction boxes and shares it to the AVRs, the HMJK-II and the SHM-KX.
 
-## Palette (for the model and the site)
-RAL 7035 `#c9ccc8` body · RAL 7016 `#383e42` frame · zinc rails `#aeb2b5` · SHM-K blue `#4f3ad8` · indicator amber `#e08a00` · LED red `#ff2a2a` · key green `#2fa45a` · page ground `#e3e6e3` · sheet `#fbfbfa` · ink `#1b1f22`.
+## Outside: SHM-D motor drives and junction boxes
+- 2 × SHM-D (T1, T2), 750 × 816 × 359. **Count TBC** (the photo has one HMJK-II and one SHM-KX, both on T1).
+- One junction box per SHM-D, outside, about 1/5 of the SHM-D: 300 × 400 × 150 (TBC).
+- Cables per SHM-D, junction box to the cabinet back: W1 BCD 10 × 1.5, W2 motor V + I 8 × 1.5, W3 control (cores TBC), W4 supply 3 × 2.5.
 
-## Live behaviour (same story everywhere, rev B)
-No grid source, so no automatic regulation. The demo is manual: RAISE (1→N) or LOWER (N→1) on the T1 master → the T1 MDU runs one step (1.25 % per tap) → the follower copies → both HMC-3C show the new tap → each HMJK-II logs the operation and the motor current. Tap 9 is nominal; taps 1–17.
+## Live behaviour (website)
+- Each remote control module drives its own AVR. Raise (S1 1-N) and lower (S2 N-1) work only with SA1 on Remote and SA2 on Manual. Stop (S3) ends a running step.
+- SA3 on Parallel (both modules): T1 is master, T2 follows one step later. On Independent each transformer moves alone.
+- Displays: AVR LCD (tap, mode), HMJK-II (T1 tap, operation count, motor current), SHM-KX (T1 tap, big). Taps 1–17, 9 nominal, one step ≈ 1.6 s.
+
+## Palette
+RAL 7035 `#c9ccc8` body · RAL 7016 `#383e42` frame · rails `#aeb2b5` · device grey `#dfe2e4` · LCD `#0f2a33` with `#9ef0c5` text · key green `#2fa45a` · stop red `#d93a3a` · lamp amber `#e08a00`.
